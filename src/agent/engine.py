@@ -12,7 +12,7 @@ class SentimentArbitrageAgent:
         self.market_tool = MarketDataTool()
         self.analyzer = FinancialSentimentAnalyzer()
 
-    def run(self, stock_code: str, max_posts: int = 10) -> AgentState:
+    def run(self, stock_code: str, max_posts: int = 10, use_llm: bool = True) -> AgentState:
         console.print(f'[bold cyan]>>> 启动 Agent 研判任务: 标的代码 [{stock_code}][/bold cyan]')
         state = AgentState(stock_code=stock_code)
 
