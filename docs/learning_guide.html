@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>金融舆情情绪研判 Agent · 阶段一实战学习台</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --border-color: #30363d;
+            --text-main: #c9d1d9;
+            --text-heading: #58a6ff;
+            --accent-green: #2ea043;
+            --accent-red: #f85149;
+            --accent-yellow: #d29922;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 30px 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 980px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: var(--text-heading);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 12px;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            color: #8b949e;
+            font-size: 15px;
+            margin-bottom: 25px;
+        }
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        .card h2 {
+            margin-top: 0;
+            font-size: 18px;
+            color: #f0f6fc;
+            border-left: 4px solid var(--text-heading);
+            padding-left: 10px;
+        }
+        .badge {
+            background-color: #238636;
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 12px;
+            display: inline-block;
+        }
+        .step-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-top: 15px;
+        }
+        .step-item {
+            background: #0d1117;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 14px;
+        }
+        .step-item h3 {
+            margin: 8px 0 6px 0;
+            font-size: 15px;
+            color: #e6edf3;
+        }
+        .step-item p {
+            font-size: 13px;
+            color: #8b949e;
+            margin: 0;
+        }
+        pre {
+            background-color: #090d13;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 14px;
+            overflow-x: auto;
+            color: #79c0ff;
+            font-size: 13px;
+            font-family: Consolas, "Liberation Mono", Menlo, monospace;
+        }
+        .interactive-box {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .interactive-box { grid-template-columns: 1fr; }
+        }
+        select, button {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: #21262d;
+            color: #f0f6fc;
+            font-size: 14px;
+            box-sizing: border-box;
+            outline: none;
+        }
+        button {
+            background-color: #238636;
+            border-color: #2ea043;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #2ea043;
+        }
+        .result-panel {
+            background: #090d13;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 14px;
+            margin-top: 12px;
+            font-size: 14px;
+        }
+        .result-row {
+            margin-bottom: 8px;
+        }
+        .qa-card {
+            background: rgba(56, 166, 255, 0.05);
+            border-left: 4px solid var(--text-heading);
+            padding: 12px 16px;
+            margin-bottom: 14px;
+            border-radius: 0 6px 6px 0;
+        }
+        .qa-title {
+            font-weight: bold;
+            color: #e6edf3;
+            font-size: 14px;
+            margin-bottom: 6px;
+        }
+        .qa-answer {
+            font-size: 13px;
+            color: #8b949e;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>金融舆情情绪研判与预警 Agent · 第一阶段实操工作台</h1>
+    <div class="subtitle">本项目手把手带你实现一个具备「黑话消歧、反讽检测、自愈回退与盘面交叉校验」的工业级金融 Agent。</div>
+
+    <div class="card">
+        <h2>阶段一：已落地的核心基础架构</h2>
+        <div class="step-list">
+            <div class="step-item">
+                <span class="badge">已落地</span>
+                <h3>1. 数据源抓取与反垃圾清洗 (scraper.py)</h3>
+                <p>真实连通东方财富股吧接口，采用正则模式拦截「微信引流、荐股战法」等水军噪声，只向 LLM 喂入高质量散户语料。</p>
+            </div>
+            <div class="step-item">
+                <span class="badge">已落地</span>
+                <h3>2. 强类型通信契约 (schema.py)</h3>
+                <p>基于 Pydantic V2 严格约束多空立场 (bullish/bearish/neutral)、[-1.0, 1.0] 得分、反讽标志与思维链推理过程。</p>
+            </div>
+            <div class="step-item">
+                <span class="badge">已落地</span>
+                <h3>3. 黑话消歧与反讽解析器 (analyzer.py)</h3>
+                <p>内置针对散户特有黑话（地天板、保卫战、吸筹、吃面）与正话反说反讽模式（如「好耶主力又送钱了接着跌」）的语义解析逻辑。</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>在线演示：散户黑话与反讽解析</h2>
+        <div class="interactive-box">
+            <div>
+                <p style="margin-top: 0; font-size: 13px; color: #8b949e;">选择或切换典型股吧帖子，观察分析器如何做语义消歧：</p>
+                <select id="caseSelector" onchange="updateCase()">
+                    <option value="0">好耶，主力又给老子送钱了，接着跌！</option>
+                    <option value="1">主力吸筹完毕，明天直接主升浪起飞！</option>
+                    <option value="2">明天1300保卫战，兄弟们准备割肉了</option>
+                    <option value="3">贵州茅台发布第三季度生产经营数据公告</option>
+                </select>
+                <button onclick="updateCase()">运行语义研判</button>
+            </div>
+            <div class="result-panel" id="analysisResult">
+                <!-- 动态渲染 -->
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>面试官必问：本阶段的核心考点与标准话术</h2>
+        
+        <div class="qa-card">
+            <div class="qa-title">Q1: 为什么在 Agent 项目中必须使用 Pydantic 做强类型校验？</div>
+            <div class="qa-answer">
+                <strong>回答核心：</strong>大模型输出是不稳定的自然语言或 JSON 文本。如果缺少确定性验证，下游模块就会随时因缺少字段或类型错误而崩溃。我们在架构中使用 Pydantic V2 约束所有 Schema，当模型输出格式或字段范围（如得分不在 -1.0 到 1.0）不合规时，系统能捕获 ValidationError 并直接将其作为反馈消息回传给大模型，驱动其自主修正（Self-Correction），保障整个 Agent 链路不崩盘。
+            </div>
+        </div>
+
+        <div class="qa-card" style="border-left-color: var(--accent-yellow);">
+            <div class="qa-title">Q2: 为什么市面通用的情感分析模型（如 BERT 或通用大模型）在 A 股舆情上经常“翻车”？</div>
+            <div class="qa-answer">
+                <strong>回答核心：</strong>股民语言具有高度隐蔽的反讽性和密集的行话隐喻。例如“好耶，主力又送钱了，接着跌”，字面上包含“好”、“送钱”等强积极词，通用模型极易判断为看多。我们在预处理与提示词架构中植入了“黑话字典匹配”和“反讽模式检测”，通过先消歧后打分的思维链（COT）机制，彻底解决了正话反说导致的误判。
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>本地实测命令（可在终端中随时执行）</h2>
+        <p style="font-size: 13px; color: #8b949e;">使用本地虚拟环境直接验证抓取与解析逻辑：</p>
+        <pre># 1. 抓取贵州茅台(600519)最新真实帖子
+.\.venv\Scripts\python.exe -c "from src.tools.scraper import StockForumScraper; [print(p.title) for p in StockForumScraper().fetch_guba_posts('600519', max_posts=5)]"
+
+# 2. 运行语义与反讽解析器
+.\.venv\Scripts\python.exe -c "from src.tools.analyzer import FinancialSentimentAnalyzer, RawPost; a = FinancialSentimentAnalyzer(); print(a.analyze_mock(RawPost(title='好耶主力又送钱了接着跌')))"</pre>
+    </div>
+</div>
+
+<script>
+    const mockData = [
+        {
+            stance: "看空 (BEARISH)",
+            score: "-0.75 (极度恐慌/愤怒)",
+            isSarcasm: "是 (True)",
+            slang: "无",
+            reason: "命中反讽模式「好耶...又送钱...接着跌」，字面为正向词汇，实际为对股价持续下跌的暴怒讽刺与绝望，属于极度悲观立场。"
+        },
+        {
+            stance: "看多 (BULLISH)",
+            score: "+0.65 (乐观高涨)",
+            isSarcasm: "否 (False)",
+            slang: "吸筹, 主升浪, 起飞",
+            reason: "命中多项典型多头行话，散户预期主力资金已完成建仓，行情即将迎来主升浪。"
+        },
+        {
+            stance: "看空 (BEARISH)",
+            score: "-0.65 (恐慌止损)",
+            isSarcasm: "否 (False)",
+            slang: "割肉, 保卫战",
+            reason: "散户群体出现恐慌踩踏特征，关键词表明筹码松动，悲观防守情绪占据主导。"
+        },
+        {
+            stance: "中性 (NEUTRAL)",
+            score: "0.00 (客观平稳)",
+            isSarcasm: "否 (False)",
+            slang: "无",
+            reason: "属于上市公司经营数据客观披露公告，无明显多空倾向与主观情感偏见。"
+        }
+    ];
+
+    function updateCase() {
+        const select = document.getElementById("caseSelector");
+        const item = mockData[select.value];
+        const resBox = document.getElementById("analysisResult");
+        
+        let stanceColor = item.stance.includes("看多") ? "var(--accent-green)" : (item.stance.includes("看空") ? "var(--accent-red)" : "var(--text-heading)");
+
+        resBox.innerHTML = `
+            <div class="result-row"><strong>研判立场：</strong> <span style="color: ${stanceColor}; font-weight: bold;">${item.stance}</span></div>
+            <div class="result-row"><strong>情绪分值：</strong> <span style="color: ${stanceColor};">${item.score}</span></div>
+            <div class="result-row"><strong>反讽检测：</strong> <span style="color: var(--accent-yellow);">${item.isSarcasm}</span></div>
+            <div class="result-row"><strong>命中黑话：</strong> <span>${item.slang}</span></div>
+            <div class="result-row" style="margin-top: 10px; font-size: 13px; color: #8b949e;"><strong>逻辑链推理：</strong><br>${item.reason}</div>
+        `;
+    }
+    updateCase();
+</script>
+
+</body>
+</html>

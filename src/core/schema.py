@@ -1,0 +1,29 @@
+from enum import Enum
+from typing import List, Optional
+from pydantic import BaseModel, Field
+
+
+class SentimentStance(str, Enum):
+    BULLISH = "bullish"    # 看多 / 乐观
+    BEARISH = "bearish"    # 看空 / 悲观
+    NEUTRAL = "neutral"    # 中性 / 客观公告
+
+
+class RawPost(BaseModel):
+    """东方财富等股吧抓取的原始帖子数据模型"""
+    title: str = Field(description="帖子标题")
+    author: Optional[str] = Field(default=None, description="作者昵称")
+    publish_time: Optional[str] = Field(default=None, description="发帖时间")
+    read_count: int = Field(default=0, description="阅读量")
+    comment_count: int = Field(default=0, description="评论量")
+    url: Optional[str] = Field(default=None, description="帖子链接")
+
+
+class SentimentAnalysisResult(BaseModel):
+    """大模型/分析引擎产出的结构化情绪判定契约"""
+    stance: SentimentStance = Field(description="核心立场: 看多/看空/中性")
+    sentiment_score: float = Field(ge=-1.0, le=1.0, description="情绪强度，-1.0为极度恐慌/看空，+1.0为极度亢奋/看多")
+    is_sarcasm: bool = Field(default=False, description="是否包含反讽/正话反说 (如: 好耶主力又送钱了)")
+    confidence: float = Field(ge=0.0, le=1.0, default=0.8, description="判定置信度")
+    slang_detected: List[str] = Field(default_factory=list, description="命中的股市隐喻/黑话")
+    reasoning: str = Field(description="严谨的研判逻辑链 (COT推导过程)")
