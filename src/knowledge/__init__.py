@@ -7,6 +7,8 @@ from src.knowledge.schema import (
     RetrievalResult,
 )
 from src.knowledge.chunker import FinancialChunker
+from src.knowledge.embeddings import BaseEmbedding, DeterministicHashEmbedding
+from src.knowledge.vector_store import InMemoryVectorStore, cosine_similarity
 
 __all__ = [
     "KnowledgeType",
@@ -14,4 +16,8 @@ __all__ = [
     "Chunk",
     "RetrievalResult",
     "FinancialChunker",
+    "BaseEmbedding",
+    "DeterministicHashEmbedding",
+    "InMemoryVectorStore",
+    "cosine_similarity",
 ]
