@@ -79,12 +79,19 @@ MODEL_NAME=gpt-4o-mini
 ```
 
 ### 3. 启动交互式 Web 仪表盘
+
+#### 方案 A：Google Gemini 现代设计系统 (React + Tailwind 原生交互)
+项目提供了参考 **Google Gemini (gemini.google.com/app)** 设计哲学的全新生产级前端组件与独立交互应用：
+- **单文件免构建原生体验**：直接在浏览器中打开 `frontend/index.html` 即可体验纯正的 Gemini 视觉与交互（支持深浅色模式切换、Collapsible Rail 折叠导航、悬浮复合药丸输入舱、思维链展开）。
+- **组件源码集成**：查看 `frontend/GeminiSentimentDashboard.tsx`，采用 React 18 + TypeScript + Tailwind CSS 模块化构建，支持无缝嵌入现有现代前端技术栈。
+
+#### 方案 B：Streamlit 仪表盘 (已升级 Gemini 美学皮肤)
 执行以下命令启动 Streamlit 前端交互工作台：
 
 ```bash
 streamlit run app.py
 ```
-在浏览器中打开提示的本地地址（默认 `http://localhost:8501`），输入 6 位 A 股股票代码（如 `600519`, `600584`, `002594`），点击 **「启动智能反思研判」** 查看决策大屏。
+在浏览器中打开提示的本地地址（默认 `http://localhost:8501`），输入 6 位 A 股股票代码（如 `600519`, `600584`, `002594`），点击 **「启动智能反思研判」** 查看经过 Gemini 色彩与卡片化重构的决策大屏。
 
 ### 4. 运行单元测试与量化评测
 
