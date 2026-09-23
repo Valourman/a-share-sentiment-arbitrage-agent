@@ -12,6 +12,13 @@ class ToolParameter(BaseModel):
     default: Optional[Any] = Field(default=None, description="默认值")
 
 
+class ToolResult(BaseModel):
+    """标准工具执行结果对象"""
+    success: bool = True
+    output: Any = ""
+    error: Optional[str] = None
+
+
 class Tool(ABC):
     """
     Hello Agents 规范标准工具抽象基类
@@ -19,7 +26,7 @@ class Tool(ABC):
     """
     name: str = ""
     description: str = ""
-    parameters: List[ToolParameter] = []
+    parameters: Any = []
 
     def __init__(self):
         if not self.name:
@@ -32,6 +39,23 @@ class Tool(ABC):
 
     def to_openai_schema(self) -> Dict[str, Any]:
         """将当前工具参数转换为标准 OpenAI Function Calling 的 JSON Schema 字典"""
+        if isinstance(self.parameters, dict):
+            params_dict = self.parameters
+            if "type" not in params_dict:
+                params_dict = {
+                    "type": "object",
+                    "properties": self.parameters,
+                    "required": [k for k, v in self.parameters.items() if isinstance(v, dict) and v.get("required", False)],
+                }
+            return {
+                "type": "function",
+                "function": {
+                    "name": self.name,
+                    "description": self.description,
+                    "parameters": params_dict,
+                },
+            }
+
         properties: Dict[str, Any] = {}
         required_list: List[str] = []
 
@@ -58,3 +82,7 @@ class Tool(ABC):
                 },
             },
         }
+
+
+BaseTool = Tool
+

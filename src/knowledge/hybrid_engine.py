@@ -8,7 +8,7 @@ import time
 from typing import Dict, List, Optional
 
 from src.knowledge.chunker import FinancialChunker
-from src.knowledge.embeddings import BaseEmbedding
+from src.knowledge.embeddings import BaseEmbedding, DeterministicHashEmbedding
 from src.knowledge.schema import Chunk, Document, KnowledgeType, RetrievalResult
 from src.knowledge.sparse_retriever import BM25Retriever
 from src.knowledge.vector_store import InMemoryVectorStore
@@ -23,20 +23,20 @@ class FinancialRAGKnowledgeBase:
 
     def __init__(
         self,
-        embedding_model: BaseEmbedding,
+        embedding_model: Optional[BaseEmbedding] = None,
         chunk_size: int = 300,
         chunk_overlap: int = 50,
     ):
         """初始化金融混合检索知识库
 
         参数:
-            embedding_model: 向量嵌入模型实例
+            embedding_model: 向量嵌入模型实例，默认使用 DeterministicHashEmbedding()
             chunk_size: 智能切片目标字符大小，默认 300
             chunk_overlap: 切片滑动窗口重叠字符大小，默认 50
         """
-        self.embedding_model = embedding_model
+        self.embedding_model = embedding_model or DeterministicHashEmbedding()
         self.chunker = FinancialChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-        self.vector_store = InMemoryVectorStore(embedding_model=embedding_model)
+        self.vector_store = InMemoryVectorStore(embedding_model=self.embedding_model)
         self.sparse_retriever = BM25Retriever()
         self._documents: Dict[str, Document] = {}
 
