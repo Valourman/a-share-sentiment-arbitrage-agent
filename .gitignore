@@ -46,3 +46,4 @@ htmlcov/
 evals/results/
 logs/
 *.log
+.superpowers/
