@@ -72,6 +72,12 @@ class ToolRegistry:
             raise KeyError(f"未找到名称为 '{name}' 的已注册工具。当前可用工具: {list(self._tools.keys())}")
         return tool.execute(**kwargs)
 
+    def register_financial_knowledge(self, kb: Optional[Any] = None) -> Tool:
+        """便捷注册金融领域垂直 RAG 检索工具 (FinancialKnowledgeTool)"""
+        from src.knowledge.tools import FinancialKnowledgeTool
+        tool = FinancialKnowledgeTool(kb=kb)
+        return self.register(tool)
+
 
 # 全局默认工具注册中心
 global_tool_registry = ToolRegistry()

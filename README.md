@@ -93,8 +93,16 @@ src/
 ├── memory/                     # [记忆与检索系统 - 第八章]
 │   ├── manager.py              # MemoryManager 记忆生命周期管理 (WorkingMemory TTL 与长期记忆固化/遗忘)
 │   ├── buffer.py               # ConversationBufferMemory 短期多轮对话滑动窗口缓存
-│   ├── knowledge.py            # FinancialKnowledgeRetriever A 股黑话与反讽隐喻领域知识库
+│   ├── knowledge.py            # FinancialKnowledgeRetriever A 股黑话与反讽隐喻领域知识库 (兼容层)
 │   └── tools.py                # MemoryTool 与 RAGTool 工具化封装 (无缝接入 ToolRegistry)
+├── knowledge/                  # [金融垂直 RAG 知识检索库 - 核心增强]
+│   ├── schema.py               # Document, Chunk, KnowledgeType, RetrievalResult 强类型契约
+│   ├── chunker.py              # FinancialChunker 结构化段落分块与滑动重叠切片器
+│   ├── embeddings.py           # BaseEmbedding 向量表示与高维哈希嵌入模型
+│   ├── vector_store.py         # InMemoryVectorStore 内存向量检索与余弦相似度匹配
+│   ├── sparse_retriever.py     # BM25Retriever 金融专有关键词稀疏检索引擎
+│   ├── hybrid_engine.py        # FinancialRAGKnowledgeBase 双路 RRF 融合与半衰期时间衰减检索引擎
+│   └── tools.py                # FinancialKnowledgeTool 遵从 Hello-Agents 规范的知识感知工具
 ├── protocols/                  # [通信协议系统 - 第十章]
 │   ├── mcp/                    # MCP (Model Context Protocol) 协议实现 (Client, Server, Tool)
 │   └── a2a/                    # A2A (Agent-to-Agent) 任务生命周期与工件协同协议
@@ -102,6 +110,44 @@ src/
     ├── dataset.py              # 15 组 A 股极端与反讽黄金测试集
     └── benchmark.py            # 自动化基准测试流水线 (规则 Baseline vs LLM Agent)
 ```
+
+---
+
+## 金融垂直 RAG 双路混合知识库 (Financial RAG Knowledge Base)
+
+针对 A 股市场高度非结构化、专业术语密集、黑话反讽层出不穷、政策时效敏感等典型金融垂直场景，本项目构建了专有的 RAG 知识检索底座 (`src/knowledge/`)，为各类金融智能体提供客观证据链支撑与实时常识消歧。
+
+### 1. 核心架构与双路召回融合 (Hybrid Retrieval + RRF)
+
+传统的单一稠密向量检索在金融场景常因“关键词精准匹配缺失”（如股票代码 `600667`、特定财报科目）而发生召回漂移，而传统 BM25 则无法理解“关灯吃面”、“主力又在送钱”等隐喻语义。本系统采用**稠密向量与 BM25 稀疏关键词双路并行召回**架构：
+
+- **稠密向量通道 (Dense)**：基于 `BaseEmbedding` 向量模型计算语义余弦相似度，捕获散户复杂反讽情绪与深层心理动机。
+- **稀疏关键词通道 (Sparse)**：内置专有 `BM25Retriever`，结合 A 股专业词根、停用词表与标的代码索引，确保公告编号、专有术语和代码百分百精确命中。
+- **RRF (Reciprocal Rank Fusion) 倒数排名融合**：
+  $$\text{RRF Score}(d) = \sum_{m \in \{dense, sparse\}} \frac{1}{k + \text{rank}_m(d)}$$
+  常数 $k=60.0$，无缝抹平向量余弦分与 BM25 得分量纲差异，确保语义匹配与精确关键词匹配优势互补。
+
+### 2. 金融长文档分块与滑动重叠 (FinancialChunker)
+
+长篇上市公司公告（如重大资产重组预案、定期报告）和券商深度研报动辄数万字，且段落间存在严格的逻辑延续性：
+- **段落感知切分**：优先保留完整的逻辑条款与财务章节。
+- **重叠滑动窗口 (Sliding Overlap)**：在切片间配置自适应重叠字符窗口（默认 50 字符），防止关键数字、风险提示在分块边界处被截断。
+- **元数据多级继承**：每个 Chunk 均自动继承父级文档的 `doc_id`、`stock_code`、`doc_type` 以及原始发布时间戳。
+
+### 3. 半衰期时间衰减机制 (Half-Life Time Decay)
+
+在金融二级市场中，“时效性就是生命线”——昨天的突发立案调查公告远比三个月前买入评级的券商研报对盘面决策具有决定性影响。系统引入基于半衰期的指数时间衰减模型：
+$$\text{Score}_{\text{final}} = \text{Score}_{\text{RRF}} \times \left(\frac{1}{2}\right)^{\frac{\Delta t}{T_{\text{half}}}}$$
+- 默认半衰期 $T_{\text{half}} = 30$ 天。
+- 突发公告（发布时间仅数小时内）衰减系数接近 1.0，即便综合词频略低也能在排序中占据高位。
+- 历史陈旧研报随时间推移得分平滑下降，彻底消除过期资讯对 Agent 研判的干扰。
+
+### 4. 智能体工具化集成与向下兼容 (ToolRegistry Integration)
+
+严格践行 Hello-Agents “除 Agent 核心调度外，一切外部感知与检索皆为 Tool”的设计哲学：
+- **标准工具封装 (`FinancialKnowledgeTool`)**：封装为继承自 `BaseTool` 的标准工具，自动输出符合 OpenAI Function Calling 的 JSON Schema 元数据。
+- **注册中心无缝挂载**：支持 `global_tool_registry.register_financial_knowledge()` 一键挂载，也支持传入自定义知识库实例。
+- **向下无缝兼容**：原有 `src.memory.knowledge.FinancialKnowledgeRetriever` 底层平滑切换至新版 RAG 检索引擎，历史业务与评测代码无需任何改动。
 
 ---
 
