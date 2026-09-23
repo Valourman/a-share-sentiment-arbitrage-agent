@@ -1,13 +1,15 @@
 import logging
 import re
-from typing import List
+from typing import Any, Dict, List, Optional
 import httpx
 from bs4 import BeautifulSoup
 from src.core.schema import RawPost, NewsArticle, AnnouncementItem
+from src.tools.base import Tool, ToolParameter
 
 logger = logging.getLogger(__name__)
 
-class StockForumScraper:
+
+class StockForumScraper(Tool):
     """
     多源金融情报与东方财富股吧全量采集工具
     涵盖：
@@ -15,6 +17,24 @@ class StockForumScraper:
     2. 主流专业财经媒体研报与主力动向（新浪财经个股滚动资讯）
     3. 上市公司官方定期报告与权威公告（新浪/东财披露专区）
     """
+    name = "stock_scraper"
+    description = "采集 A 股标的的多源金融情报，包括股吧散户帖子、主流财经新闻与官方公告"
+    parameters = [
+        ToolParameter(
+            name="stock_code",
+            type="string",
+            description="6位A股股票代码，例如 600519 或 002594",
+            required=True,
+        ),
+        ToolParameter(
+            name="max_posts",
+            type="integer",
+            description="抓取散户发帖最大数量",
+            required=False,
+            default=30,
+        ),
+    ]
+
     DEFAULT_HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept-Language": "zh-CN,zh;q=0.9",
@@ -27,7 +47,21 @@ class StockForumScraper:
     SPAM_REGEX = re.compile("|".join(SPAM_PATTERNS))
 
     def __init__(self, timeout: float = 8.0):
+        super().__init__()
         self.timeout = timeout
+
+    def execute(self, **kwargs: Any) -> Dict[str, Any]:
+        """Tool 标准执行入口"""
+        stock_code = kwargs.get("stock_code", "")
+        max_posts = int(kwargs.get("max_posts", 30))
+        posts = self.fetch_guba_posts(stock_code, max_posts=max_posts)
+        news = self.fetch_financial_news(stock_code, max_items=5)
+        announcements = self.fetch_announcements(stock_code, max_items=4)
+        return {
+            "posts": [p.model_dump() for p in posts],
+            "news": [n.model_dump() for n in news],
+            "announcements": [a.model_dump() for a in announcements],
+        }
 
     def _format_symbol(self, stock_code: str) -> str:
         """转换 6 位股票代码为带市场前缀的代码 (如 sh600584, sz002594)"""

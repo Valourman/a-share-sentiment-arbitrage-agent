@@ -1,16 +1,28 @@
 import logging
 import urllib.request
+from typing import Any, Dict
 from src.core.market_schema import MarketSnapshot
+from src.tools.base import Tool, ToolParameter
 
 logger = logging.getLogger(__name__)
 
-class MarketDataTool:
+
+class MarketDataTool(Tool):
     """从公开行情通道获取个股盘面量价数据（确定性事实源）"""
+    name = "market_data"
+    description = "获取 A 股标的真实客观的秒级 L1 盘面快照，包括现价、涨跌幅、前收价与成交额"
+    parameters = [
+        ToolParameter(
+            name="stock_code",
+            type="string",
+            description="6位A股股票代码，例如 600519 或 002594",
+            required=True,
+        )
+    ]
 
     @staticmethod
     def _format_secid(code: str) -> str:
         code_str = str(code).strip()
-        # 兼容带前缀的代码如 sh600584, sz002594
         if code_str.lower().startswith(('sh', 'sz', 'bj')):
             return code_str.lower()
         if code_str.startswith(('6', '9')):
@@ -20,6 +32,12 @@ class MarketDataTool:
         elif code_str.startswith(('4', '8')):
             return f'bj{code_str}'
         return f'sh{code_str}'
+
+    def execute(self, **kwargs: Any) -> Dict[str, Any]:
+        """Tool 标准执行入口"""
+        stock_code = kwargs.get("stock_code", "")
+        snapshot = self.fetch_snapshot(stock_code)
+        return snapshot.model_dump()
 
     def fetch_snapshot(self, stock_code: str) -> MarketSnapshot:
         secid = self._format_secid(stock_code)
