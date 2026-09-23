@@ -3,13 +3,17 @@ import re
 from typing import List
 import httpx
 from bs4 import BeautifulSoup
-from src.core.schema import RawPost
+from src.core.schema import RawPost, NewsArticle, AnnouncementItem
 
 logger = logging.getLogger(__name__)
 
 class StockForumScraper:
     """
-    东方财富股吧真实爬取与反水军清洗工具
+    多源金融情报与东方财富股吧全量采集工具
+    涵盖：
+    1. 散户社区极端情绪与反讽言论（东方财富股吧，默认抓取全量最大深度）
+    2. 主流专业财经媒体研报与主力动向（新浪财经个股滚动资讯）
+    3. 上市公司官方定期报告与权威公告（新浪/东财披露专区）
     """
     DEFAULT_HEADERS = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -22,18 +26,33 @@ class StockForumScraper:
     ]
     SPAM_REGEX = re.compile("|".join(SPAM_PATTERNS))
 
-    def __init__(self, timeout: float = 10.0):
+    def __init__(self, timeout: float = 8.0):
         self.timeout = timeout
 
-    def fetch_guba_posts(self, stock_code: str, max_posts: int = 20) -> List[RawPost]:
-        url = f"https://guba.eastmoney.com/list,{stock_code}.html"
+    def _format_symbol(self, stock_code: str) -> str:
+        """转换 6 位股票代码为带市场前缀的代码 (如 sh600584, sz002594)"""
+        code = str(stock_code).strip()
+        if code.startswith(("60", "68", "90")):
+            return f"sh{code}"
+        elif code.startswith(("00", "30", "20")):
+            return f"sz{code}"
+        elif code.startswith(("8", "4", "92")):
+            return f"bj{code}"
+        return f"sh{code}"
+
+    def fetch_guba_posts(self, stock_code: str, max_posts: int = 30) -> List[RawPost]:
+        """
+        全量最大深度采集东方财富股吧的散户原帖（默认提取该页全量有效样本，去除水军广告）
+        """
+        clean_code = re.sub(r"\D", "", stock_code)
+        url = f"https://guba.eastmoney.com/list,{clean_code}.html"
         try:
             with httpx.Client(timeout=self.timeout, headers=self.DEFAULT_HEADERS) as client:
                 resp = client.get(url)
                 resp.raise_for_status()
                 html_content = resp.content.decode("utf-8", errors="replace")
         except Exception as e:
-            logger.warning(f"股吧爬取失败 [{stock_code}]: {e}")
+            logger.warning(f"股吧爬取失败 [{clean_code}]: {e}")
             return []
 
         soup = BeautifulSoup(html_content, "html.parser")
@@ -75,6 +94,63 @@ class StockForumScraper:
                 continue
 
         return posts
+
+    def fetch_financial_news(self, stock_code: str, max_items: int = 5) -> List[NewsArticle]:
+        """
+        多源抓取主流专业财经媒体个股滚动新闻（主力资金、研报评级、行业催化）
+        """
+        symbol = self._format_symbol(stock_code)
+        url = f"https://vip.stock.finance.sina.com.cn/corp/go.php/vCB_AllNewsStock/symbol/{symbol}.phtml"
+        news_list: List[NewsArticle] = []
+        try:
+            with httpx.Client(timeout=self.timeout, headers=self.DEFAULT_HEADERS) as client:
+                resp = client.get(url)
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.content.decode("gbk", errors="replace"), "html.parser")
+                    items = soup.select(".datelist ul a")
+                    for elem in items[:max_items]:
+                        title = elem.get_text(strip=True)
+                        href = elem.get("href", "")
+                        if title and len(title) > 6:
+                            news_list.append(
+                                NewsArticle(
+                                    title=title,
+                                    source="新浪财经/专业媒体",
+                                    url=href if href.startswith("http") else f"https:{href}" if href.startswith("//") else href,
+                                )
+                            )
+        except Exception as e:
+            logger.warning(f"专业财经资讯抓取异常 [{stock_code}]: {e}")
+
+        return news_list
+
+    def fetch_announcements(self, stock_code: str, max_items: int = 4) -> List[AnnouncementItem]:
+        """
+        抓取上市公司官方披露公告（财报年报、重大事项、重组、定增）
+        """
+        clean_code = re.sub(r"\D", "", stock_code)
+        url = f"https://vip.stock.finance.sina.com.cn/corp/go.php/vCB_Bulletin/stockid/{clean_code}/page_type/ndbg.phtml"
+        ann_list: List[AnnouncementItem] = []
+        try:
+            with httpx.Client(timeout=self.timeout, headers=self.DEFAULT_HEADERS) as client:
+                resp = client.get(url)
+                if resp.status_code == 200:
+                    soup = BeautifulSoup(resp.content.decode("gbk", errors="replace"), "html.parser")
+                    items = soup.select(".datelist ul a")
+                    for elem in items[:max_items]:
+                        title = elem.get_text(strip=True)
+                        href = elem.get("href", "")
+                        if title:
+                            ann_list.append(
+                                AnnouncementItem(
+                                    title=title,
+                                    url=href if href.startswith("http") else f"https:{href}" if href.startswith("//") else href,
+                                )
+                            )
+        except Exception as e:
+            logger.warning(f"官方公告披露抓取异常 [{stock_code}]: {e}")
+
+        return ann_list
 
     def _is_spam(self, text: str) -> bool:
         return bool(self.SPAM_REGEX.search(text))

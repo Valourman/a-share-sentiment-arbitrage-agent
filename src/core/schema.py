@@ -19,6 +19,21 @@ class RawPost(BaseModel):
     url: Optional[str] = Field(default=None, description="帖子链接")
 
 
+class NewsArticle(BaseModel):
+    """新浪/财联社等主流专业财经新闻资讯模型"""
+    title: str = Field(description="资讯标题")
+    source: str = Field(default="新浪财经", description="新闻来源媒体")
+    publish_time: Optional[str] = Field(default=None, description="发布时间")
+    url: Optional[str] = Field(default=None, description="资讯链接")
+
+
+class AnnouncementItem(BaseModel):
+    """上市公司官方披露公告模型"""
+    title: str = Field(description="公告标题")
+    publish_time: Optional[str] = Field(default=None, description="披露时间")
+    url: Optional[str] = Field(default=None, description="公告链接")
+
+
 class SentimentAnalysisResult(BaseModel):
     """大模型/分析引擎产出的结构化情绪判定契约"""
     raw_title: Optional[str] = Field(default=None, description="原始发帖标题/语料")

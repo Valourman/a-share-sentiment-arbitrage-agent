@@ -2,7 +2,7 @@ from enum import Enum
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from src.core.market_schema import MarketSnapshot
-from src.core.schema import SentimentAnalysisResult
+from src.core.schema import SentimentAnalysisResult, NewsArticle, AnnouncementItem
 
 class DivergenceType(str, Enum):
     BULL_TRAP = "多头诱多 (BULL_TRAP)"
@@ -35,6 +35,8 @@ class AgentState(BaseModel):
     stock_name: Optional[str] = None
     market_data: Optional[MarketSnapshot] = None
     sentiment_list: List[SentimentAnalysisResult] = Field(default_factory=list)
+    news_list: List[NewsArticle] = Field(default_factory=list, description="主流专业财经资讯")
+    announcements: List[AnnouncementItem] = Field(default_factory=list, description="官方披露公告")
     average_sentiment: float = 0.0
     reflection: Optional[ReflectionDecision] = None
     iteration_count: int = 0
