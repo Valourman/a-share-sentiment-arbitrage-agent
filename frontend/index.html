@@ -58,6 +58,42 @@
     ::-webkit-scrollbar-thumb:hover {
       background: rgba(150, 150, 150, 0.45);
     }
+
+    /* Magic UI: Border Beam 沿边框旋转流光 */
+    @keyframes border-beam {
+      100% {
+        offset-distance: 100%;
+      }
+    }
+    .animate-border-beam {
+      animation: border-beam var(--duration, 10s) infinite linear;
+    }
+
+    /* Magic UI: Marquee 无缝平滑跑马灯 */
+    @keyframes marquee-scroll {
+      from { transform: translateX(0); }
+      to { transform: translateX(calc(-100% - 1rem)); }
+    }
+    @keyframes marquee-scroll-reverse {
+      from { transform: translateX(calc(-100% - 1rem)); }
+      to { transform: translateX(0); }
+    }
+    .animate-marquee {
+      animation: marquee-scroll var(--speed, 35s) linear infinite;
+    }
+    .animate-marquee-reverse {
+      animation: marquee-scroll-reverse var(--speed, 35s) linear infinite;
+    }
+    .marquee-container:hover .animate-marquee,
+    .marquee-container:hover .animate-marquee-reverse {
+      animation-play-state: paused;
+    }
+
+    /* 跑马灯左右边缘羽化渐隐遮罩 */
+    .mask-edge-fade {
+      mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+      -webkit-mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+    }
   </style>
 </head>
 <body class="bg-gemini-bgLight dark:bg-gemini-bgDark text-neutral-900 dark:text-neutral-100 transition-colors duration-300 font-sans selection:bg-blue-500/20 selection:text-blue-600">
@@ -65,6 +101,132 @@
 
   <script type="text/babel">
     const { useState, useEffect } = React;
+
+    // 1. Magic UI: Border Beam (环绕边框流光动效)
+    function BorderBeam({
+      size = 260,
+      duration = 8,
+      delay = 0,
+      colorFrom = "#4285F4",
+      colorTo = "#9B72CF",
+      className = ""
+    }) {
+      return (
+        <div className={`pointer-events-none absolute inset-0 rounded-[inherit] overflow-hidden ${className}`}>
+          <div
+            className="animate-border-beam absolute aspect-square"
+            style={{
+              width: `${size}px`,
+              offsetPath: "rect(0 auto auto 0 round inherit)",
+              WebkitOffsetPath: "rect(0 auto auto 0 round inherit)",
+              animationDelay: `-${delay}s`,
+              "--duration": `${duration}s`,
+              background: `linear-gradient(to left, ${colorFrom}, ${colorTo}, transparent)`,
+            }}
+          />
+        </div>
+      );
+    }
+
+    // 2. Magic UI: Number Ticker (数字平滑缓动滚动器)
+    function NumberTicker({
+      value,
+      decimals = 2,
+      prefix = "",
+      suffix = "",
+      duration = 900,
+      className = ""
+    }) {
+      const [displayVal, setDisplayVal] = useState(0);
+
+      useEffect(() => {
+        const end = typeof value === "number" ? value : parseFloat(value);
+        if (isNaN(end)) return;
+
+        let start = 0;
+        const startTime = performance.now();
+        let frameId;
+
+        const animate = (currentTime) => {
+          const elapsed = currentTime - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          // 经典 easeOutCubic 阻尼缓动
+          const easeProgress = 1 - Math.pow(1 - progress, 3);
+          const current = start + (end - start) * easeProgress;
+          setDisplayVal(current);
+
+          if (progress < 1) {
+            frameId = requestAnimationFrame(animate);
+          }
+        };
+
+        frameId = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(frameId);
+      }, [value, duration]);
+
+      return (
+        <span className={className}>
+          {prefix}
+          {displayVal.toFixed(decimals)}
+          {suffix}
+        </span>
+      );
+    }
+
+    // 3. Magic UI: Marquee (无限平滑跑马灯)
+    function Marquee({ items, onSelect, reverse = false, speed = 32 }) {
+      return (
+        <div className="marquee-container relative flex overflow-hidden w-full select-none py-1 mask-edge-fade">
+          <div
+            className={`flex gap-3 shrink-0 ${reverse ? "animate-marquee-reverse" : "animate-marquee"}`}
+            style={{ "--speed": `${speed}s` }}
+          >
+            {items.map((item, idx) => (
+              <div
+                key={`orig-${idx}`}
+                onClick={() => onSelect(item.code)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-black/5 dark:border-white/10 bg-white/80 dark:bg-neutral-800/80 backdrop-blur-md text-xs hover:border-blue-500/50 hover:bg-blue-50/60 dark:hover:bg-blue-900/30 cursor-pointer transition-all shrink-0 active:scale-95 group shadow-sm"
+              >
+                <span className="font-semibold text-neutral-800 dark:text-neutral-200 group-hover:text-blue-500 transition-colors">
+                  {item.name}
+                </span>
+                <span className="font-mono text-[10px] text-neutral-400">({item.code})</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-700/60 text-neutral-600 dark:text-neutral-300 font-medium">
+                  {item.tag}
+                </span>
+                <span className={`text-[10px] font-mono font-semibold ${item.change >= 0 ? "text-red-500" : "text-emerald-500"}`}>
+                  {item.change >= 0 ? `+${item.change}%` : `${item.change}%`}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div
+            className={`flex gap-3 shrink-0 ${reverse ? "animate-marquee-reverse" : "animate-marquee"}`}
+            style={{ "--speed": `${speed}s` }}
+            aria-hidden="true"
+          >
+            {items.map((item, idx) => (
+              <div
+                key={`clone-${idx}`}
+                onClick={() => onSelect(item.code)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-black/5 dark:border-white/10 bg-white/80 dark:bg-neutral-800/80 backdrop-blur-md text-xs hover:border-blue-500/50 hover:bg-blue-50/60 dark:hover:bg-blue-900/30 cursor-pointer transition-all shrink-0 active:scale-95 group shadow-sm"
+              >
+                <span className="font-semibold text-neutral-800 dark:text-neutral-200 group-hover:text-blue-500 transition-colors">
+                  {item.name}
+                </span>
+                <span className="font-mono text-[10px] text-neutral-400">({item.code})</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-700/60 text-neutral-600 dark:text-neutral-300 font-medium">
+                  {item.tag}
+                </span>
+                <span className={`text-[10px] font-mono font-semibold ${item.change >= 0 ? "text-red-500" : "text-emerald-500"}`}>
+                  {item.change >= 0 ? `+${item.change}%` : `${item.change}%`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
 
     function App() {
       const [isDark, setIsDark] = useState(false);
@@ -86,6 +248,25 @@
         { id: "1", code: "600584", title: "长电科技 · 散户恐慌割肉背离", time: "10分钟前" },
         { id: "2", code: "600519", title: "贵州茅台 · 散户反讽消歧研判", time: "昨天" },
         { id: "3", code: "002594", title: "比亚迪 · 盘面情绪量价共振", time: "3天前" },
+      ];
+
+      // 实时市场情绪异动跑马灯数据集
+      const marqueeFeed1 = [
+        { code: "600584", name: "长电科技", tag: "高位背离预警", change: -0.80 },
+        { code: "600519", name: "贵州茅台", tag: "核心资产反讽", change: -0.13 },
+        { code: "002594", name: "比亚迪", tag: "量价情绪共振", change: -0.81 },
+        { code: "601127", name: "赛力斯", tag: "诱多筹码甄别", change: -0.96 },
+        { code: "300750", name: "宁德时代", tag: "恐慌磨底割肉", change: 1.25 },
+        { code: "688981", name: "中芯国际", tag: "半导体情绪修复", change: 2.14 },
+      ];
+
+      const marqueeFeed2 = [
+        { code: "300059", name: "东方财富", tag: "券商旗手分歧", change: 1.88 },
+        { code: "000001", name: "平安银行", tag: "高股息避险关注", change: 0.18 },
+        { code: "601318", name: "中国平安", tag: "散户自嘲反向", change: -0.45 },
+        { code: "002475", name: "立讯精密", tag: "果链情绪博弈", change: -1.02 },
+        { code: "600036", name: "招商银行", tag: "主力资金潜伏", change: 0.52 },
+        { code: "000725", name: "京东方A", tag: "周期筑底争议", change: -0.26 },
       ];
 
       useEffect(() => {
@@ -444,6 +625,19 @@
                     <p className="text-sm sm:text-base text-neutral-500 dark:text-neutral-400 max-w-lg mb-8 leading-relaxed">
                       基于 Google Gemini 设计哲学的金融舆情研判中枢。穿透散户黑话与反语隐喻，与秒级 L1 盘面深度交叉印证。
                     </p>
+
+                    {/* Magic UI: 市场实时情绪异动跑马灯 */}
+                    <div className="w-full max-w-2xl mb-8 space-y-2.5">
+                      <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wider text-left px-1 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <i data-lucide="activity" className="w-3.5 h-3.5 text-blue-500"></i>
+                          市场实时情报流与异动扫描
+                        </span>
+                        <span className="text-[10px] text-neutral-400">悬停暂停 · 点击快速研判</span>
+                      </div>
+                      <Marquee items={marqueeFeed1} onSelect={handleTrigger} speed={30} />
+                      <Marquee items={marqueeFeed2} onSelect={handleTrigger} reverse={true} speed={26} />
+                    </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl text-left">
                       {[
