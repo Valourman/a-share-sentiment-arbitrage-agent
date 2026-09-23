@@ -135,9 +135,13 @@ MODEL_NAME=gpt-4o-mini
 
 ### 3. 启动交互式 Web 仪表盘
 
-#### 方案 A：Google Gemini 现代设计系统 (React + Tailwind 原生交互)
-项目提供了参考 **Google Gemini (gemini.google.com/app)** 设计哲学的全新生产级前端组件与独立交互应用：
+#### 方案 A：Google Gemini 现代设计系统 + Magic UI 动态微动效 (React + Tailwind 原生交互)
+项目提供了参考 **Google Gemini (gemini.google.com/app)** 与 **Magic UI (magicui.design)** 视觉哲学的全新生产级前端组件与独立交互应用：
 - **单文件免构建原生体验**：直接在浏览器中打开 `frontend/index.html` 即可体验纯正的 Gemini 视觉与交互（支持深浅色模式切换、Collapsible Rail 折叠导航、悬浮复合药丸输入舱、思维链展开）。
+- **Magic UI 核心动态动效集成**：
+  - **Border Beam（边框流光动效）**：为核心背离决策卡与底部输入舱增添细腻平滑的算力呼吸流光。
+  - **Number Ticker（数据平滑滚动计数器）**：L1 盘面现价、涨跌幅、成交额与情绪分通过缓动曲线平滑累加。
+  - **Marquee（市场舆情无缝跑马灯）**：欢迎界面集成双向无缝循环滚动的热点情报条，支持悬停暂停与快捷点选研判。
 - **组件源码集成**：查看 `frontend/GeminiSentimentDashboard.tsx`，采用 React 18 + TypeScript + Tailwind CSS 模块化构建，支持无缝嵌入现有现代前端技术栈。
 
 #### 方案 B：Streamlit 仪表盘 (已升级 Gemini 美学皮肤)

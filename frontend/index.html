@@ -715,29 +715,40 @@
                           <div className={`p-4 rounded-3xl border transition-all ${isDark ? "bg-gemini-surfaceDark/70 border-white/5" : "bg-white border-black/5 shadow-sm"}`}>
                             <div className="text-[11px] text-neutral-400 mb-1">最新成交价</div>
                             <div className={`text-base font-semibold font-mono ${activeSession.market_data.change_percent >= 0 ? "text-red-500" : "text-emerald-500"}`}>
-                              {activeSession.market_data.current_price.toFixed(2)} 元
+                              <NumberTicker value={activeSession.market_data.current_price} decimals={2} suffix=" 元" />
                             </div>
-                            <div className={`text-[10px] font-semibold ${activeSession.market_data.change_percent >= 0 ? "text-red-500" : "text-emerald-500"}`}>
-                              {activeSession.market_data.change_percent >= 0 ? `+${activeSession.market_data.change_percent}%` : `${activeSession.market_data.change_percent}%`}
+                            <div className={`text-[10px] font-semibold font-mono ${activeSession.market_data.change_percent >= 0 ? "text-red-500" : "text-emerald-500"}`}>
+                              <NumberTicker
+                                value={activeSession.market_data.change_percent}
+                                decimals={2}
+                                prefix={activeSession.market_data.change_percent >= 0 ? "+" : ""}
+                                suffix="%"
+                              />
                             </div>
                           </div>
 
                           <div className={`p-4 rounded-3xl border transition-all ${isDark ? "bg-gemini-surfaceDark/70 border-white/5" : "bg-white border-black/5 shadow-sm"}`}>
                             <div className="text-[11px] text-neutral-400 mb-1">今日成交量能</div>
-                            <div className="text-base font-semibold font-mono">{activeSession.market_data.turnover_amount_yi.toFixed(2)} 亿</div>
+                            <div className="text-base font-semibold font-mono">
+                              <NumberTicker value={activeSession.market_data.turnover_amount_yi} decimals={2} suffix=" 亿" />
+                            </div>
                             <div className="text-[10px] text-neutral-400">主力博弈活跃</div>
                           </div>
 
                           <div className={`p-4 rounded-3xl border transition-all ${isDark ? "bg-gemini-surfaceDark/70 border-white/5" : "bg-white border-black/5 shadow-sm"}`}>
                             <div className="text-[11px] text-neutral-400 mb-1">散户综合情绪分</div>
                             <div className="text-base font-semibold font-mono text-emerald-500">
-                              {activeSession.average_sentiment.toFixed(2)}
+                              <NumberTicker
+                                value={activeSession.average_sentiment}
+                                decimals={2}
+                                prefix={activeSession.average_sentiment > 0 ? "+" : ""}
+                              />
                             </div>
                             <div className="text-[10px] text-neutral-400">区间: [-1.0, +1.0]</div>
                           </div>
                         </div>
 
-                        {/* 2. 背离研判雷达警报卡 */}
+                        {/* 2. 背离研判雷达警报卡 (集成 Magic UI Border Beam 流光动效) */}
                         <div className={`p-5 rounded-3xl border relative overflow-hidden transition-all ${
                           activeSession.reflection.is_divergent
                             ? isDark
@@ -745,6 +756,12 @@
                               : "bg-gradient-to-r from-red-50 via-white to-white border-red-200"
                             : isDark ? "bg-gemini-surfaceDark border-emerald-500/30" : "bg-emerald-50/60 border-emerald-200"
                         }`}>
+                          <BorderBeam
+                            size={320}
+                            duration={activeSession.reflection.is_divergent ? 6 : 9}
+                            colorFrom={activeSession.reflection.is_divergent ? "#EF4444" : "#4285F4"}
+                            colorTo={activeSession.reflection.is_divergent ? "#F59E0B" : "#9B72CF"}
+                          />
                           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                             <div className="flex items-center gap-2">
                               <span className="relative flex h-3 w-3">
@@ -887,15 +904,16 @@
               </div>
             </div>
 
-            {/* 视口中下方悬浮复合胶囊输入舱 (Floating Input Pill) */}
+            {/* 视口中下方悬浮复合胶囊输入舱 (Floating Input Pill 集成 Magic UI Border Beam) */}
             <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 pointer-events-none z-20 flex justify-center">
               <div className="w-full max-w-3xl pointer-events-auto">
-                <div className={`p-2 sm:p-2.5 rounded-3xl sm:rounded-full shadow-2xl border backdrop-blur-2xl transition-all ${
+                <div className={`relative overflow-hidden p-2 sm:p-2.5 rounded-3xl sm:rounded-full shadow-2xl border backdrop-blur-2xl transition-all ${
                   isDark
                     ? "bg-gemini-surfaceDark/85 border-white/10 shadow-black/60"
                     : "bg-white/85 border-black/10 shadow-slate-200/80"
                 }`}>
-                  <div className="flex items-center gap-2">
+                  <BorderBeam size={200} duration={10} colorFrom="#4285F4" colorTo="#9B72CF" />
+                  <div className="relative z-10 flex items-center gap-2">
                     {/* 代码选择胶囊 */}
                     <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/5 dark:bg-white/5 text-xs text-neutral-600 dark:text-neutral-300 font-mono">
                       <i data-lucide="search" className="w-3.5 h-3.5 text-neutral-400"></i>

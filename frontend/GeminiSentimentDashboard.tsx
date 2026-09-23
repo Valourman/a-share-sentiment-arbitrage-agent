@@ -28,8 +28,171 @@ import {
   Moon,
   ShieldAlert,
   BarChart3,
-  Bot
+  Bot,
+  Activity
 } from "lucide-react";
+
+// ==========================================
+// Magic UI 风格动态动效组件 (Dynamic UI Components)
+// ==========================================
+
+export interface BorderBeamProps {
+  size?: number;
+  duration?: number;
+  delay?: number;
+  colorFrom?: string;
+  colorTo?: string;
+  className?: string;
+}
+
+export const BorderBeam: React.FC<BorderBeamProps> = ({
+  size = 260,
+  duration = 8,
+  delay = 0,
+  colorFrom = "#4285F4",
+  colorTo = "#9B72CF",
+  className = ""
+}) => {
+  return (
+    <div className={`pointer-events-none absolute inset-0 rounded-[inherit] overflow-hidden ${className}`}>
+      <div
+        className="animate-border-beam absolute aspect-square"
+        style={{
+          width: `${size}px`,
+          offsetPath: "rect(0 auto auto 0 round inherit)",
+          animationDelay: `-${delay}s`,
+          animationDuration: `${duration}s`,
+          background: `linear-gradient(to left, ${colorFrom}, ${colorTo}, transparent)`,
+        }}
+      />
+    </div>
+  );
+};
+
+export interface NumberTickerProps {
+  value: number | string;
+  decimals?: number;
+  prefix?: string;
+  suffix?: string;
+  duration?: number;
+  className?: string;
+}
+
+export const NumberTicker: React.FC<NumberTickerProps> = ({
+  value,
+  decimals = 2,
+  prefix = "",
+  suffix = "",
+  duration = 900,
+  className = ""
+}) => {
+  const [displayVal, setDisplayVal] = useState<number>(0);
+
+  useEffect(() => {
+    const end = typeof value === "number" ? value : parseFloat(value);
+    if (isNaN(end)) return;
+
+    let start = 0;
+    const startTime = performance.now();
+    let frameId: number;
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
+      const current = start + (end - start) * easeProgress;
+      setDisplayVal(current);
+
+      if (progress < 1) {
+        frameId = requestAnimationFrame(animate);
+      }
+    };
+
+    frameId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frameId);
+  }, [value, duration]);
+
+  return (
+    <span className={className}>
+      {prefix}
+      {displayVal.toFixed(decimals)}
+      {suffix}
+    </span>
+  );
+};
+
+export interface MarqueeItem {
+  code: string;
+  name: string;
+  tag: string;
+  change: number;
+}
+
+export interface MarqueeProps {
+  items: MarqueeItem[];
+  onSelect: (code: string) => void;
+  reverse?: boolean;
+  speed?: number;
+}
+
+export const Marquee: React.FC<MarqueeProps> = ({
+  items,
+  onSelect,
+  reverse = false,
+  speed = 32
+}) => {
+  return (
+    <div className="marquee-container relative flex overflow-hidden w-full select-none py-1 mask-edge-fade">
+      <div
+        className={`flex gap-3 shrink-0 ${reverse ? "animate-marquee-reverse" : "animate-marquee"}`}
+        style={{ animationDuration: `${speed}s` }}
+      >
+        {items.map((item, idx) => (
+          <div
+            key={`orig-${idx}`}
+            onClick={() => onSelect(item.code)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-black/5 dark:border-white/10 bg-white/80 dark:bg-neutral-800/80 backdrop-blur-md text-xs hover:border-blue-500/50 hover:bg-blue-50/60 dark:hover:bg-blue-900/30 cursor-pointer transition-all shrink-0 active:scale-95 group shadow-sm"
+          >
+            <span className="font-semibold text-neutral-800 dark:text-neutral-200 group-hover:text-blue-500 transition-colors">
+              {item.name}
+            </span>
+            <span className="font-mono text-[10px] text-neutral-400">({item.code})</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-700/60 text-neutral-600 dark:text-neutral-300 font-medium">
+              {item.tag}
+            </span>
+            <span className={`text-[10px] font-mono font-semibold ${item.change >= 0 ? "text-red-500" : "text-emerald-500"}`}>
+              {item.change >= 0 ? `+${item.change}%` : `${item.change}%`}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div
+        className={`flex gap-3 shrink-0 ${reverse ? "animate-marquee-reverse" : "animate-marquee"}`}
+        style={{ animationDuration: `${speed}s` }}
+        aria-hidden="true"
+      >
+        {items.map((item, idx) => (
+          <div
+            key={`clone-${idx}`}
+            onClick={() => onSelect(item.code)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-black/5 dark:border-white/10 bg-white/80 dark:bg-neutral-800/80 backdrop-blur-md text-xs hover:border-blue-500/50 hover:bg-blue-50/60 dark:hover:bg-blue-900/30 cursor-pointer transition-all shrink-0 active:scale-95 group shadow-sm"
+          >
+            <span className="font-semibold text-neutral-800 dark:text-neutral-200 group-hover:text-blue-500 transition-colors">
+              {item.name}
+            </span>
+            <span className="font-mono text-[10px] text-neutral-400">({item.code})</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-neutral-100 dark:bg-neutral-700/60 text-neutral-600 dark:text-neutral-300 font-medium">
+              {item.tag}
+            </span>
+            <span className={`text-[10px] font-mono font-semibold ${item.change >= 0 ? "text-red-500" : "text-emerald-500"}`}>
+              {item.change >= 0 ? `+${item.change}%` : `${item.change}%`}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 // ==========================================
 // 领域实体与类型定义 (Domain Types)

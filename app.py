@@ -2,6 +2,8 @@ import streamlit as st
 import re
 from src.agent.engine import SentimentArbitrageAgent
 from src.agent.state import AgentState
+from src.core.config import AgentConfig, global_config
+from src.core.llm import HelloAgentsLLM
 
 # ============================================================
 # 1. 页面基础配置 (Gemini 沉浸式风格)
@@ -328,6 +330,30 @@ footer { visibility: hidden !important; }
     transform: translateY(-1px) !important;
 }
 
+/* 侧边栏折叠面板与表单输入控件美化 */
+[data-testid="stSidebar"] [data-testid="stExpander"] {
+    background: #FFFFFF !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.5rem !important;
+    overflow: hidden !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] summary {
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    color: #374151 !important;
+    padding: 0.55rem 0.8rem !important;
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] [data-testid="stExpanderDetails"] {
+    padding: 0.5rem 0.8rem 0.8rem 0.8rem !important;
+}
+[data-testid="stSidebar"] .stTextInput input, [data-testid="stSidebar"] .stSelectbox div[data-baseweb="select"] {
+    border-radius: 8px !important;
+    font-size: 0.8rem !important;
+}
+
 /* Streamlit Tabs 切换美化 */
 .stTabs [data-baseweb="tab-list"] {
     gap: 0.5rem;
@@ -350,12 +376,45 @@ footer { visibility: hidden !important; }
 st.markdown(GEMINI_NATIVE_CSS, unsafe_allow_html=True)
 
 # ============================================================
-# 3. Session State 管理
+# 3. Session State 管理与全局辅助函数
 # ============================================================
 if "active_state" not in st.session_state:
     st.session_state.active_state = None
 if "current_stock" not in st.session_state:
     st.session_state.current_stock = None
+if "settings" not in st.session_state:
+    st.session_state.settings = {
+        "api_key": global_config.openai_api_key or "",
+        "base_url": global_config.openai_base_url or "",
+        "model_name": global_config.default_model or "gpt-4o-mini",
+        "temperature": float(global_config.temperature if global_config.temperature is not None else 0.1),
+        "max_posts": 30,
+        "use_llm": True,
+        "timeout_seconds": float(global_config.timeout_seconds if global_config.timeout_seconds is not None else 30.0),
+    }
+
+
+def run_configured_agent(stock_code: str):
+    """根据当前会话动态设置构造 LLM 与 Agent 并执行研判"""
+    st.session_state.current_stock = stock_code
+    settings = st.session_state.settings
+    config = AgentConfig(
+        openai_api_key=settings["api_key"].strip() if settings["api_key"].strip() else None,
+        openai_base_url=settings["base_url"].strip() if settings["base_url"].strip() else None,
+        default_model=settings["model_name"].strip() if settings["model_name"].strip() else "gpt-4o-mini",
+        temperature=float(settings["temperature"]),
+        timeout_seconds=float(settings["timeout_seconds"]),
+    )
+    llm = HelloAgentsLLM(config=config)
+    agent = SentimentArbitrageAgent(llm=llm)
+    state = agent.run(
+        stock_code=stock_code,
+        max_posts=int(settings["max_posts"]),
+        use_llm=bool(settings["use_llm"]),
+    )
+    st.session_state.active_state = state
+    return state
+
 
 # ============================================================
 # 4. 左侧折叠侧边栏 (Gemini Rail 规范)
@@ -373,6 +432,92 @@ with st.sidebar:
         st.session_state.current_stock = None
         st.rerun()
 
+    # 系统与模型设置折叠面板
+    with st.expander("系统与模型设置", expanded=False):
+        st.markdown("<div style='font-size: 0.72rem; color: #4B5563; font-weight: 600; margin-bottom: 0.25rem;'>大模型接入配置</div>", unsafe_allow_html=True)
+        cur_s = st.session_state.settings
+
+        new_api_key = st.text_input(
+            "API Key",
+            value=cur_s["api_key"],
+            type="password",
+            placeholder="留空则读取环境变量 OPENAI_API_KEY",
+            help="OpenAI 或兼容服务商 API 密钥",
+        )
+        new_base_url = st.text_input(
+            "Base URL",
+            value=cur_s["base_url"],
+            placeholder="如 https://api.openai.com/v1",
+            help="模型服务端点 Base URL",
+        )
+
+        preset_models = ["gpt-4o-mini", "gpt-4o", "deepseek-chat", "qwen-plus", "自定义"]
+        model_idx = 0
+        if cur_s["model_name"] in preset_models[:-1]:
+            model_idx = preset_models.index(cur_s["model_name"])
+        elif cur_s["model_name"]:
+            model_idx = len(preset_models) - 1
+
+        selected_model = st.selectbox(
+            "选择模型",
+            options=preset_models,
+            index=model_idx,
+        )
+        if selected_model == "自定义":
+            model_name = st.text_input("自定义模型名", value=cur_s["model_name"])
+        else:
+            model_name = selected_model
+
+        temperature = st.slider(
+            "采样温度 (Temperature)",
+            min_value=0.0,
+            max_value=1.0,
+            value=float(cur_s["temperature"]),
+            step=0.05,
+            help="较低值输出更收敛确定，较高值更发散",
+        )
+
+        st.markdown("<div style='font-size: 0.72rem; color: #4B5563; font-weight: 600; margin: 0.5rem 0 0.25rem 0;'>情报与策略配置</div>", unsafe_allow_html=True)
+        max_posts = st.slider(
+            "最大抓取帖数",
+            min_value=10,
+            max_value=60,
+            value=int(cur_s["max_posts"]),
+            step=5,
+            help="单次从股吧抓取的最大帖子条数",
+        )
+        use_llm = st.toggle(
+            "启用大模型反思消歧",
+            value=bool(cur_s["use_llm"]),
+            help="关闭后仅做规则匹配，开启后调用大模型进行反讽消歧与多步反思",
+        )
+
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("保存设置", key="btn_save_settings", use_container_width=True):
+                st.session_state.settings.update({
+                    "api_key": new_api_key.strip(),
+                    "base_url": new_base_url.strip(),
+                    "model_name": model_name.strip() if model_name else "gpt-4o-mini",
+                    "temperature": temperature,
+                    "max_posts": max_posts,
+                    "use_llm": use_llm,
+                })
+                st.success("配置已更新生效")
+                st.rerun()
+        with c2:
+            if st.button("恢复默认", key="btn_reset_settings", use_container_width=True):
+                st.session_state.settings = {
+                    "api_key": global_config.openai_api_key or "",
+                    "base_url": global_config.openai_base_url or "",
+                    "model_name": global_config.default_model or "gpt-4o-mini",
+                    "temperature": float(global_config.temperature if global_config.temperature is not None else 0.1),
+                    "max_posts": 30,
+                    "use_llm": True,
+                    "timeout_seconds": float(global_config.timeout_seconds if global_config.timeout_seconds is not None else 30.0),
+                }
+                st.rerun()
+
     st.markdown("<div style='font-size: 0.72rem; color: #9CA3AF; font-weight: 600; text-transform: uppercase; margin: 1rem 0 0.5rem 0.25rem;'>快速切换标的</div>", unsafe_allow_html=True)
 
     preset_stocks = [
@@ -385,18 +530,18 @@ with st.sidebar:
 
     for code, label in preset_stocks:
         if st.button(label, key=f"btn_{code}", use_container_width=True):
-            st.session_state.current_stock = code
             with st.spinner(f"Agent 正在多方位并发采集 [{code}] 全量股吧、主流新闻与盘面..."):
-                agent = SentimentArbitrageAgent()
-                # 默认全量最大深度 (max_posts=30)，并聚合多源资讯
-                state = agent.run(stock_code=code, max_posts=30, use_llm=True)
-                st.session_state.active_state = state
+                run_configured_agent(code)
             st.rerun()
 
+    cur_m = st.session_state.settings["model_name"]
+    cur_p = st.session_state.settings["max_posts"]
+    cur_llm = "开启" if st.session_state.settings["use_llm"] else "关闭"
     st.markdown("---")
-    st.markdown("""
+    st.markdown(f"""
     <div style="font-size: 0.75rem; color: #6B7280; line-height: 1.6; padding: 0.25rem;">
-        <span class="info-label-tag">策略</span> <strong>分析深度</strong>：全量最大化（自动抓取该页全部真实散户发帖）<br>
+        <span class="info-label-tag">模型</span> <strong>当前模型</strong>：{cur_m}<br>
+        <span class="info-label-tag">策略</span> <strong>分析深度</strong>：{cur_p} 条 (反思消歧: {cur_llm})<br>
         <span class="info-label-tag">信源</span> <strong>多源覆盖</strong>：股吧全量 + 专业财经新闻 + 官方披露公告 + 秒级 L1 盘面
     </div>
     """, unsafe_allow_html=True)
@@ -434,13 +579,9 @@ if user_input:
     code_match = re.search(r"\b(\d{6})\b", user_input)
     target_code = code_match.group(1) if code_match else user_input.strip()
 
-    st.session_state.current_stock = target_code
     with st.spinner(f"Agent 正在多方位全量采集 [{target_code}] 股吧、新闻与盘面，并启动大模型多步反思..."):
         try:
-            agent = SentimentArbitrageAgent()
-            # 默认全量最大深度 (max_posts=30)
-            state = agent.run(stock_code=target_code, max_posts=30, use_llm=True)
-            st.session_state.active_state = state
+            run_configured_agent(target_code)
         except Exception as e:
             st.error(f"Agent 研判异常: {e}")
     st.rerun()
@@ -469,28 +610,24 @@ if not state:
     col1, col2 = st.columns(2)
     with col1:
         if st.button("**长电科技 (600584)**\n\n半导体封测龙头：全量散户情绪与日内盘面多维背离分析", key="hero_600584", use_container_width=True):
-            st.session_state.current_stock = "600584"
             with st.spinner("正在多方位全量研判长电科技..."):
-                st.session_state.active_state = SentimentArbitrageAgent().run("600584", max_posts=30, use_llm=True)
+                run_configured_agent("600584")
             st.rerun()
 
         if st.button("**比亚迪 (002594)**\n\n新能源汽车龙头：多源验证散户全量情绪与专业机构资讯共振", key="hero_002594", use_container_width=True):
-            st.session_state.current_stock = "002594"
             with st.spinner("正在多方位全量研判比亚迪..."):
-                st.session_state.active_state = SentimentArbitrageAgent().run("002594", max_posts=30, use_llm=True)
+                run_configured_agent("002594")
             st.rerun()
 
     with col2:
         if st.button("**太极实业 (600667)**\n\n半导体工程龙头：全量散户黑话反讽消歧与盘面资金博弈特征", key="hero_600667", use_container_width=True):
-            st.session_state.current_stock = "600667"
             with st.spinner("正在多方位全量研判太极实业..."):
-                st.session_state.active_state = SentimentArbitrageAgent().run("600667", max_posts=30, use_llm=True)
+                run_configured_agent("600667")
             st.rerun()
 
         if st.button("**贵州茅台 (600519)**\n\n白酒消费核心资产：深度剖析全量股吧散户悲喜情绪与官方公告", key="hero_600519", use_container_width=True):
-            st.session_state.current_stock = "600519"
             with st.spinner("正在多方位全量研判贵州茅台..."):
-                st.session_state.active_state = SentimentArbitrageAgent().run("600519", max_posts=30, use_llm=True)
+                run_configured_agent("600519")
             st.rerun()
 
 else:
