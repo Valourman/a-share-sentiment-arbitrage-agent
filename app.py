@@ -8,7 +8,6 @@ from src.agent.state import AgentState
 # ============================================================
 st.set_page_config(
     page_title="A-Share Sentiment Agent · Google Gemini",
-    page_icon="✨",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -263,6 +262,32 @@ footer { visibility: hidden !important; }
     border-radius: 9999px;
     margin-right: 0.35rem;
 }
+.status-indicator-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+.status-indicator-dot.alert {
+    background-color: #DC2626;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
+}
+.status-indicator-dot.normal {
+    background-color: #059669;
+    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.2);
+}
+.info-label-tag {
+    display: inline-block;
+    background: #E5E7EB;
+    color: #374151;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    margin-right: 0.3rem;
+}
 
 /* 底部悬浮复合输入舱 (Chat Input) */
 [data-testid="stChatInput"] {
@@ -343,7 +368,7 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    if st.button("✨ 发起新标的研判", use_container_width=True):
+    if st.button("发起新标的研判", use_container_width=True):
         st.session_state.active_state = None
         st.session_state.current_stock = None
         st.rerun()
@@ -359,7 +384,7 @@ with st.sidebar:
     ]
 
     for code, label in preset_stocks:
-        if st.button(f"🕒 {label}", key=f"btn_{code}", use_container_width=True):
+        if st.button(label, key=f"btn_{code}", use_container_width=True):
             st.session_state.current_stock = code
             with st.spinner(f"Agent 正在多方位并发采集 [{code}] 全量股吧、主流新闻与盘面..."):
                 agent = SentimentArbitrageAgent()
@@ -370,9 +395,9 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("""
-    <div style="font-size: 0.75rem; color: #6B7280; line-height: 1.5; padding: 0.25rem;">
-        ⚡ <strong>分析策略</strong>：全量最大化深度（自动抓取该页全部真实散户发帖）<br>
-        🌐 <strong>多源情报</strong>：股吧全量 + 专业财经新闻 + 官方披露公告 + 秒级 L1 盘面
+    <div style="font-size: 0.75rem; color: #6B7280; line-height: 1.6; padding: 0.25rem;">
+        <span class="info-label-tag">策略</span> <strong>分析深度</strong>：全量最大化（自动抓取该页全部真实散户发帖）<br>
+        <span class="info-label-tag">信源</span> <strong>多源覆盖</strong>：股吧全量 + 专业财经新闻 + 官方披露公告 + 秒级 L1 盘面
     </div>
     """, unsafe_allow_html=True)
 
@@ -382,10 +407,20 @@ with st.sidebar:
 st.markdown("""
 <div class="gemini-app-bar">
     <div class="gemini-app-title">
-        ✨ A-Share Sentiment Agent
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="vertical-align: -2px; margin-right: 6px;">
+            <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" fill="url(#titleGrad)"/>
+            <defs>
+                <linearGradient id="titleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#4285F4"/>
+                    <stop offset="50%" stop-color="#9B72CF"/>
+                    <stop offset="100%" stop-color="#D96570"/>
+                </linearGradient>
+            </defs>
+        </svg>
+        A-Share Sentiment Agent
     </div>
     <div class="gemini-chip-badge">
-        🌐 多源情报网：东财全量股吧 + 新浪财经资讯 + 官方权威公告 + 秒级 L1 盘面
+        多源情报网：东财全量股吧 · 新浪财经资讯 · 官方权威公告 · 秒级 L1 盘面
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -419,7 +454,11 @@ if not state:
     # ---------------- 空态：Gemini 经典居中 Hero ----------------
     st.markdown("""
     <div class="welcome-container">
-        <div class="welcome-sparkle-icon">✨</div>
+        <div class="welcome-sparkle-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+                <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"/>
+            </svg>
+        </div>
         <div class="welcome-title">你好，投资研究员</div>
         <div class="welcome-desc">
             基于 Google Gemini 设计系统的金融多源研判智能体。不设散户分析深度限制，默认全量捕获股吧舆情，并并行汇聚主流专业资讯与官方披露，与秒级真实盘面交叉验证。
@@ -429,26 +468,26 @@ if not state:
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("📈 **长电科技 (600584)**\n\n半导体封测龙头：全量散户情绪与日内盘面多维背离分析", key="hero_600584", use_container_width=True):
+        if st.button("**长电科技 (600584)**\n\n半导体封测龙头：全量散户情绪与日内盘面多维背离分析", key="hero_600584", use_container_width=True):
             st.session_state.current_stock = "600584"
             with st.spinner("正在多方位全量研判长电科技..."):
                 st.session_state.active_state = SentimentArbitrageAgent().run("600584", max_posts=30, use_llm=True)
             st.rerun()
 
-        if st.button("🚗 **比亚迪 (002594)**\n\n新能源汽车龙头：多源验证散户全量情绪与专业机构资讯共振", key="hero_002594", use_container_width=True):
+        if st.button("**比亚迪 (002594)**\n\n新能源汽车龙头：多源验证散户全量情绪与专业机构资讯共振", key="hero_002594", use_container_width=True):
             st.session_state.current_stock = "002594"
             with st.spinner("正在多方位全量研判比亚迪..."):
                 st.session_state.active_state = SentimentArbitrageAgent().run("002594", max_posts=30, use_llm=True)
             st.rerun()
 
     with col2:
-        if st.button("🏢 **太极实业 (600667)**\n\n半导体工程龙头：全量散户黑话反讽消歧与盘面资金博弈特征", key="hero_600667", use_container_width=True):
+        if st.button("**太极实业 (600667)**\n\n半导体工程龙头：全量散户黑话反讽消歧与盘面资金博弈特征", key="hero_600667", use_container_width=True):
             st.session_state.current_stock = "600667"
             with st.spinner("正在多方位全量研判太极实业..."):
                 st.session_state.active_state = SentimentArbitrageAgent().run("600667", max_posts=30, use_llm=True)
             st.rerun()
 
-        if st.button("🍶 **贵州茅台 (600519)**\n\n白酒消费核心资产：深度剖析全量股吧散户悲喜情绪与官方公告", key="hero_600519", use_container_width=True):
+        if st.button("**贵州茅台 (600519)**\n\n白酒消费核心资产：深度剖析全量股吧散户悲喜情绪与官方公告", key="hero_600519", use_container_width=True):
             st.session_state.current_stock = "600519"
             with st.spinner("正在多方位全量研判贵州茅台..."):
                 st.session_state.active_state = SentimentArbitrageAgent().run("600519", max_posts=30, use_llm=True)
@@ -474,7 +513,11 @@ else:
 
     st.markdown(f"""
     <div class="gemini-ai-container">
-        <div class="gemini-sparkle-avatar">✨</div>
+        <div class="gemini-sparkle-avatar">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="white">
+                <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z"/>
+            </svg>
+        </div>
         <div style="flex: 1; overflow: hidden;">
             <!-- 四宫格盘面行情芯片 -->
             <div class="market-chips-grid">
@@ -512,13 +555,13 @@ else:
         radar_class = "radar-banner divergent" if is_div else "radar-banner"
         badge_bg = "#FEE2E2" if is_div else "#D1FAE5"
         badge_text = "#B91C1C" if is_div else "#065F46"
-        icon = "🚨" if is_div else "✅"
+        status_dot = '<span class="status-indicator-dot alert"></span>' if is_div else '<span class="status-indicator-dot normal"></span>'
 
         st.markdown(f"""
         <div class="{radar_class}">
             <div class="radar-header">
                 <div class="radar-status">
-                    <span>{icon}</span>
+                    {status_dot}
                     <span>多源异动背离研判: {div_label}</span>
                 </div>
                 <span class="radar-badge" style="background: {badge_bg}; color: {badge_text};">
@@ -529,13 +572,13 @@ else:
                 <strong>多维因果推导逻辑：</strong>{ref.reflection_narrative}
             </div>
             <div style="padding: 0.65rem 0.85rem; background: rgba(0,0,0,0.03); border-radius: 0.75rem; font-size: 0.8rem; color: #4B5563;">
-                💡 <strong>交易策略与风控提示：</strong>{ref.action_suggestion}
+                <strong>交易策略与风控提示：</strong>{ref.action_suggestion}
             </div>
         </div>
         """, unsafe_allow_html=True)
 
     # Gemini 思维链展开抽屉
-    with st.expander("🤖 Gemini 大模型多源思维链语义推理过程 (4 个步骤)"):
+    with st.expander("Gemini 大模型多源思维链语义推理过程 (4 个步骤)"):
         st.markdown(f"""
         - **第一步 [客观行情事实]**：提取实时现价 **{price:.2f} 元**，日内变动 **{chg:+.2f}%**，成交量能 **{turnover:.2f} 亿元**。
         - **第二步 [多方位信息聚合]**：无限制抓取东方财富股吧全部 **{len(state.sentiment_list)} 条有效原帖**，并同步比对新浪主流新闻与官方公告。
@@ -547,9 +590,9 @@ else:
     # 8. 多源情报分区展示 Tabs (Gemini 沉浸式标签页)
     # ============================================================
     tab_guba, tab_news, tab_ann = st.tabs([
-        f"💬 股吧全量散户语料消歧 ({len(state.sentiment_list)} 条样本)",
-        f"📰 主流专业财经资讯与主力动向 ({len(state.news_list)} 篇)",
-        f"📢 上市公司官方披露公告 ({len(state.announcements)} 份)"
+        f"股吧全量散户语料消歧 ({len(state.sentiment_list)} 条样本)",
+        f"主流专业财经资讯与主力动向 ({len(state.news_list)} 篇)",
+        f"上市公司官方披露公告 ({len(state.announcements)} 份)"
     ])
 
     with tab_guba:
@@ -570,7 +613,7 @@ else:
                 stance_bg = "#F3F4F6"
 
             slang_html = "".join([f'<span class="slang-pill">#{s}</span>' for s in item.slang_detected]) if item.slang_detected else '<span style="color: #9CA3AF; font-size: 0.7rem;">无特殊黑话</span>'
-            sarcasm_html = '<span class="sarcasm-pill">🔥 识别到反讽语义翻转</span>' if item.is_sarcasm else ''
+            sarcasm_html = '<span class="sarcasm-pill">识别到反讽语义翻转</span>' if item.is_sarcasm else ''
 
             post_content = getattr(item, "raw_title", None) or f"股吧散户讨论语料 #{idx + 1}"
 
@@ -592,7 +635,7 @@ else:
                     “{post_content}”
                 </div>
                 <div style="font-size: 0.75rem; color: #6B7280;">
-                    🧠 <strong>大模型消歧依据：</strong>{item.reasoning}
+                    <strong>大模型消歧依据：</strong>{item.reasoning}
                 </div>
             </div>
             """, unsafe_allow_html=True)
