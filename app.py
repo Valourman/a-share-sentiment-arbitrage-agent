@@ -247,22 +247,32 @@ if st.session_state.agent_state is not None:
 
     # 3. 散户语料样本与大模型消歧明细
     st.markdown("### 🔍 散户语料明细与大模型反思消歧")
-    for item in state.sentiment_list:
-        stance_val = getattr(item.stance, "value", str(item.stance))
-        is_bullish = "看多" in stance_val
-        is_bearish = "看空" in stance_val
-        stance_color = "#DC2626" if is_bullish else ("#059669" if is_bearish else "#6B7280")
-        stance_bg = "#FEE2E2" if is_bullish else ("#D1FAE5" if is_bearish else "#F3F4F6")
+    for idx, item in enumerate(state.sentiment_list):
+        raw_val = str(getattr(item.stance, "value", item.stance)).lower()
+        if "bull" in raw_val or "多" in raw_val:
+            display_stance = "看多 (Bullish)"
+            stance_color = "#DC2626"
+            stance_bg = "#FEE2E2"
+        elif "bear" in raw_val or "空" in raw_val:
+            display_stance = "看空 (Bearish)"
+            stance_color = "#059669"
+            stance_bg = "#D1FAE5"
+        else:
+            display_stance = "中性 (Neutral)"
+            stance_color = "#4B5563"
+            stance_bg = "#F3F4F6"
 
         slang_html = "".join([f'<span class="slang-chip">#{s}</span>' for s in item.slang_detected]) if item.slang_detected else '<span style="color: #9CA3AF; font-size: 0.75rem;">无黑话</span>'
         sarcasm_html = '<span class="sarcasm-tag">🔥 识别到反讽语义翻转</span>' if item.is_sarcasm else ''
+
+        post_content = getattr(item, "raw_title", None) or getattr(item, "original_post", None) or f"股吧散户讨论语料 #{idx + 1}"
 
         st.markdown(f"""
         <div class="post-bubble">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                 <div>
                     <span style="background: {stance_bg}; color: {stance_color}; font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 9999px; margin-right: 0.5rem;">
-                        {stance_val}
+                        {display_stance}
                     </span>
                     {sarcasm_html}
                     {slang_html}
@@ -272,7 +282,7 @@ if st.session_state.agent_state is not None:
                 </div>
             </div>
             <div style="font-size: 0.875rem; color: #1F2937; margin: 0.5rem 0; padding-left: 0.75rem; border-left: 3px solid #E5E7EB; font-style: italic;">
-                “{item.original_post}”
+                “{post_content}”
             </div>
             <div style="font-size: 0.775rem; color: #6B7280; margin-top: 0.4rem;">
                 🧠 <strong>思维链判定依据：</strong>{item.reasoning}

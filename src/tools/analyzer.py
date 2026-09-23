@@ -62,6 +62,7 @@ class FinancialSentimentAnalyzer:
                     raw_content, SentimentAnalysisResult
                 )
                 if parsed:
+                    parsed.raw_title = post.title
                     return parsed
                 messages.append({'role': 'assistant', 'content': raw_content})
                 messages.append({'role': 'user', 'content': feedback})
@@ -79,6 +80,7 @@ class FinancialSentimentAnalyzer:
 
         if is_sarcasm:
             return SentimentAnalysisResult(
+                raw_title=title,
                 stance=SentimentStance.BEARISH,
                 sentiment_score=-0.75,
                 is_sarcasm=True,
@@ -89,6 +91,7 @@ class FinancialSentimentAnalyzer:
 
         if len(detected_bullish) > len(detected_bearish):
             return SentimentAnalysisResult(
+                raw_title=title,
                 stance=SentimentStance.BULLISH,
                 sentiment_score=0.65,
                 is_sarcasm=False,
@@ -98,6 +101,7 @@ class FinancialSentimentAnalyzer:
             )
         elif len(detected_bearish) > len(detected_bullish):
             return SentimentAnalysisResult(
+                raw_title=title,
                 stance=SentimentStance.BEARISH,
                 sentiment_score=-0.65,
                 is_sarcasm=False,
@@ -107,6 +111,7 @@ class FinancialSentimentAnalyzer:
             )
         else:
             return SentimentAnalysisResult(
+                raw_title=title,
                 stance=SentimentStance.NEUTRAL,
                 sentiment_score=0.0,
                 is_sarcasm=False,

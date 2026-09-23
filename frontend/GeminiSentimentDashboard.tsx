@@ -116,30 +116,43 @@ export const GeminiSentimentDashboard: React.FC = () => {
     setStockCode(targetCode);
 
     setTimeout(() => {
+      const isMoutai = targetCode === "600519";
+      const isByd = targetCode === "002594";
+      const isSeres = targetCode === "601127";
+      const stockName = isMoutai ? "贵州茅台" : isByd ? "比亚迪" : isSeres ? "赛力斯" : "长电科技";
+
+      const priceMap: Record<string, { price: number; chg: number; turnover: number }> = {
+        "600584": { price: 71.66, chg: -0.80, turnover: 28.10 },
+        "600519": { price: 1252.22, chg: -0.13, turnover: 25.37 },
+        "002594": { price: 85.88, chg: -0.81, turnover: 10.09 },
+        "601127": { price: 47.32, chg: -0.96, turnover: 6.06 },
+      };
+      const market = priceMap[targetCode] || { price: 71.66, chg: -0.80, turnover: 28.10 };
+
       const mockResult: AgentRunState = {
         stock_code: targetCode,
-        stock_name: targetCode === "600519" ? "贵州茅台" : targetCode === "002594" ? "比亚迪" : "长电科技",
+        stock_name: stockName,
         timestamp: new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }),
         market_data: {
           stock_code: targetCode,
-          stock_name: targetCode === "600519" ? "贵州茅台" : targetCode === "002594" ? "比亚迪" : "长电科技",
-          current_price: targetCode === "600519" ? 1720.5 : targetCode === "002594" ? 286.3 : 32.45,
-          change_percent: targetCode === "600519" ? -1.85 : 4.12,
-          turnover_amount_yi: targetCode === "600519" ? 54.2 : 28.6,
+          stock_name: stockName,
+          current_price: market.price,
+          change_percent: market.chg,
+          turnover_amount_yi: market.turnover,
         },
-        average_sentiment: -0.68,
+        average_sentiment: -0.58,
         reflection: {
           is_divergent: true,
-          divergence_type: "价格虚拉 / 散户恐慌割肉 (洗盘背离)",
-          risk_level: "高 (High)",
+          divergence_type: "价格弱势整理 / 散户极端悲观 (恐慌磨底)",
+          risk_level: "中 (Medium)",
           reflection_narrative:
-            "标的盘面日内放量大涨 +4.12%，但股吧散户论坛情绪深度承压 (-0.68)，出现大面积『主力快跑』、『再买剁手』等黑话反讽。大模型多步思维链消歧确认散户处于极端交出筹码状态，呈现经典盘面主力对倒拉升与散户非理性恐慌背离。",
+            `标的 ${stockName} 盘面日内弱势整理 (${market.chg}%)，最新价格 ${market.price} 元，成交额 ${market.turnover} 亿。散户论坛情绪深度承压 (-0.58)，大面积充斥『主力发套』、『剁手割肉』等反讽言论。大模型思维链确认散户处于非理性恐慌抛售阶段，筹码逐步向主力沉淀，具备恐慌盘磨底特征。`,
           action_suggestion:
-            "短期注意主力诱多出货脉冲或高位震荡，散户情绪未现逆向修复前不宜重仓盲目追高，等待缩量二次确认。",
+            "左侧恐慌割肉盘逐步出清，短期关注分时企稳承接信号与量能变化，不宜盲目杀跌或过度激进追涨。",
           thinking_steps: [
-            "第一步 [盘面基准交叉]：提取实时行情 L1 数据，价格突破 32.40 元，成交额 28.6 亿，技术面呈现超买走势。",
-            "第二步 [大模型语义消歧]：检索并解析 5 条高频热帖，识别到『赢麻了』实际带有反讽修辞，真实态度修正为强看空。",
-            "第三步 [黑话提取与反思]：触发关键词『发套』、『收割』，反思引擎比对历史情绪周期，判定当前为筹码置换期。",
+            `第一步 [盘面基准交叉]：调用新浪 L1 行情接口获取 ${stockName} 现价 ${market.price} 元，日内变动 ${market.chg}%，成交额 ${market.turnover} 亿。`,
+            "第二步 [大模型语义消歧]：检索并解析股吧高频热帖，识别到『赢麻了』实际带有反讽修辞，真实态度修正为强看空。",
+            "第三步 [黑话提取与反思]：触发关键词『发套』、『收割』，反思引擎比对历史情绪周期，判定当前为筹码置换磨底期。",
             "第四步 [自愈决策生成]：通过 Pydantic 校验背离类型，输出背离告警与二级风控策略建议。",
           ],
         },

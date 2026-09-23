@@ -21,6 +21,7 @@ class RawPost(BaseModel):
 
 class SentimentAnalysisResult(BaseModel):
     """大模型/分析引擎产出的结构化情绪判定契约"""
+    raw_title: Optional[str] = Field(default=None, description="原始发帖标题/语料")
     stance: SentimentStance = Field(description="核心立场: 看多/看空/中性")
     sentiment_score: float = Field(ge=-1.0, le=1.0, description="情绪强度，-1.0为极度恐慌/看空，+1.0为极度亢奋/看多")
     is_sarcasm: bool = Field(default=False, description="是否包含反讽/正话反说 (如: 好耶主力又送钱了)")
