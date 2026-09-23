@@ -6,10 +6,12 @@ from src.knowledge.schema import (
     Chunk,
     RetrievalResult,
 )
+from src.knowledge.chunker import FinancialChunker
 
 __all__ = [
     "KnowledgeType",
     "Document",
     "Chunk",
     "RetrievalResult",
+    "FinancialChunker",
 ]
