@@ -1,35 +1,44 @@
+import logging
 import urllib.request
-import re
 from src.core.market_schema import MarketSnapshot
 
+logger = logging.getLogger(__name__)
+
 class MarketDataTool:
-    """从公开や情通咓获取个股盘面量价数据（确定性事实源）"""
+    """从公开行情通道获取个股盘面量价数据（确定性事实源）"""
+
     @staticmethod
     def _format_secid(code: str) -> str:
-        if code.startswith('6') or code.startswith('9'):
-            return f'sh{code}'
-        elif code.startswith('0') or code.startswith('5'):
-            return f'sz{code}'
-        elif code.startswith('4') or code.startswith('8'):
-            return f'bj{code}'
-        return f'sh{code}'
+        code_str = str(code).strip()
+        # 兼容带前缀的代码如 sh600584, sz002594
+        if code_str.lower().startswith(('sh', 'sz', 'bj')):
+            return code_str.lower()
+        if code_str.startswith(('6', '9')):
+            return f'sh{code_str}'
+        elif code_str.startswith(('0', '3', '5')):
+            return f'sz{code_str}'
+        elif code_str.startswith(('4', '8')):
+            return f'bj{code_str}'
+        return f'sh{code_str}'
+
     def fetch_snapshot(self, stock_code: str) -> MarketSnapshot:
         secid = self._format_secid(stock_code)
         url = f'https://hq.sinajs.cn/list={secid}'
-        headers = default_headers = {
+        headers = {
             'Referer': 'https://finance.sina.com.cn',
-            'User-Agent': 'Mozilla/5.0'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
         req = urllib.request.Request(url, headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=5) as resp:
                 content = resp.read().decode('gbk', errors='ignore')
             if '"' not in content:
-                raise ValueError('invalid response')
+                raise ValueError(f'返回内容无效，未能提取行情数据: {content}')
             raw_data = content.split('"')[1]
             parts = raw_data.split(',')
             if len(parts) < 10:
-                raise ValueError('incomplete quote')
+                raise ValueError(f'行情切片字段不完整: {parts}')
+
             name = parts[0]
             pre_close = float(parts[2])
             curr_p = float(parts[3])
@@ -37,18 +46,21 @@ class MarketDataTool:
             chg_pct = 0.0
             if pre_close > 0:
                 chg_pct = round(((curr_p - pre_close) / pre_close) * 100, 2)
+
             return MarketSnapshot(
                 stock_code=stock_code,
                 stock_name=name,
                 current_price=curr_p,
                 pre_close=pre_close,
                 change_percent=chg_pct,
-                turnover_amount_yi=round(amount_yuan / 1e8, 2)
+                turnover_amount_yi=round(amount_yuan / 1e8, 2),
+                is_trading=True
             )
-        except Exception:
+        except Exception as e:
+            logger.warning(f"获取股票 [{stock_code}] 行情快照失败，启动降级保护: {e}")
             return MarketSnapshot(
                 stock_code=stock_code,
-                stock_name='unknown',
+                stock_name='未识别标的',
                 current_price=0.0,
                 pre_close=0.0,
                 change_percent=0.0,

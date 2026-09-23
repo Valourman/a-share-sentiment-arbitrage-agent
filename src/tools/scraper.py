@@ -1,9 +1,11 @@
+import logging
 import re
 from typing import List
 import httpx
 from bs4 import BeautifulSoup
 from src.core.schema import RawPost
 
+logger = logging.getLogger(__name__)
 
 class StockForumScraper:
     """
@@ -13,11 +15,12 @@ class StockForumScraper:
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "Accept-Language": "zh-CN,zh;q=0.9",
     }
-    
+
     SPAM_PATTERNS = [
         r"微[信x]|加[vV]|进群|免费领|涨停战法|牛股推荐|内幕|私信|带飞",
         r"点击链接|加老师|领取代码|短线翻倍",
     ]
+    SPAM_REGEX = re.compile("|".join(SPAM_PATTERNS))
 
     def __init__(self, timeout: float = 10.0):
         self.timeout = timeout
@@ -30,7 +33,7 @@ class StockForumScraper:
                 resp.raise_for_status()
                 html_content = resp.content.decode("utf-8", errors="replace")
         except Exception as e:
-            print(f"[Scraper Error] 抓取失败: {e}")
+            logger.warning(f"股吧爬取失败 [{stock_code}]: {e}")
             return []
 
         soup = BeautifulSoup(html_content, "html.parser")
@@ -67,13 +70,11 @@ class StockForumScraper:
 
                 if len(posts) >= max_posts:
                     break
-            except Exception:
+            except Exception as e:
+                logger.debug(f"解析单条发帖异常: {e}")
                 continue
 
         return posts
 
     def _is_spam(self, text: str) -> bool:
-        for pattern in self.SPAM_PATTERNS:
-            if re.search(pattern, text):
-                return True
-        return False
+        return bool(self.SPAM_REGEX.search(text))

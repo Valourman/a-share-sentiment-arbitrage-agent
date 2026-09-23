@@ -1,0 +1,100 @@
+"""
+单元测试: 反思研判与决策回路 (Reflection Loop) 测试套件
+命名规范: test_<功能>_<场景>_<期望结果>
+"""
+import pytest
+from unittest.mock import MagicMock, patch
+from src.agent.engine import SentimentArbitrageAgent
+from src.agent.state import AgentState, DivergenceType, RiskLevel
+from src.core.market_schema import MarketSnapshot
+from src.core.schema import RawPost, SentimentAnalysisResult, SentimentStance
+
+@pytest.fixture
+def agent_instance():
+    return SentimentArbitrageAgent()
+
+def test_reflection_bull_trap_when_sentiment_high_and_price_drops(agent_instance):
+    """测试当散户情绪亢奋看多 (>=0.25) 但盘面大幅下挫 (< -0.5%) 时触发 BULL_TRAP"""
+    state = AgentState(stock_code="600584")
+    state.average_sentiment = 0.65
+    state.market_data = MarketSnapshot(
+        stock_code="600584",
+        stock_name="长电科技",
+        current_price=28.5,
+        pre_close=30.0,
+        change_percent=-5.0,
+        turnover_amount_yi=10.0,
+        is_trading=True
+    )
+
+    decision = agent_instance._reflect_on_divergence(state)
+    assert decision.is_divergent is True
+    assert decision.divergence_type == DivergenceType.BULL_TRAP
+    assert decision.risk_level == RiskLevel.HIGH
+    assert "多头诱多" in decision.reflection_narrative
+
+def test_reflection_panic_bottom_when_sentiment_low_and_price_resilient(agent_instance):
+    """测试当散户极度恐慌割肉 (<= -0.25) 但盘面抗跌红盘 (>= 0.0%) 时触发 PANIC_BOTTOM"""
+    state = AgentState(stock_code="002594")
+    state.average_sentiment = -0.55
+    state.market_data = MarketSnapshot(
+        stock_code="002594",
+        stock_name="比亚迪",
+        current_price=250.0,
+        pre_close=248.0,
+        change_percent=0.81,
+        turnover_amount_yi=35.0,
+        is_trading=True
+    )
+
+    decision = agent_instance._reflect_on_divergence(state)
+    assert decision.is_divergent is True
+    assert decision.divergence_type == DivergenceType.PANIC_BOTTOM
+    assert decision.risk_level == RiskLevel.MEDIUM
+    assert "悲观绝望" in decision.reflection_narrative
+    assert "恐慌盘" in decision.action_suggestion
+
+def test_reflection_consistent_when_sentiment_aligns_with_price(agent_instance):
+    """测试散户情绪与盘面走势共振时判定为 CONSISTENT 平稳状态"""
+    state = AgentState(stock_code="600519")
+    state.average_sentiment = 0.40
+    state.market_data = MarketSnapshot(
+        stock_code="600519",
+        stock_name="贵州茅台",
+        current_price=1750.0,
+        pre_close=1720.0,
+        change_percent=1.74,
+        turnover_amount_yi=60.0,
+        is_trading=True
+    )
+
+    decision = agent_instance._reflect_on_divergence(state)
+    assert decision.is_divergent is False
+    assert decision.divergence_type == DivergenceType.CONSISTENT
+    assert decision.risk_level == RiskLevel.LOW
+
+def test_agent_run_pipeline_with_mock_tools(agent_instance):
+    """测试通过 Mock 工具链执行 Agent.run 完整流水线"""
+    mock_posts = [
+        RawPost(title="长电科技主升浪启动！", author="股民小李", publish_time="10:00", read_count=100, comment_count=10),
+        RawPost(title="好耶，又吃面了，太棒了主力送钱！", author="韭菜本菜", publish_time="10:05", read_count=200, comment_count=25),
+    ]
+    mock_snapshot = MarketSnapshot(
+        stock_code="600584",
+        stock_name="长电科技",
+        current_price=30.0,
+        pre_close=30.0,
+        change_percent=0.0,
+        turnover_amount_yi=8.0,
+        is_trading=True
+    )
+
+    with patch.object(agent_instance.scraper, "fetch_guba_posts", return_value=mock_posts), \
+         patch.object(agent_instance.market_tool, "fetch_snapshot", return_value=mock_snapshot):
+
+        final_state = agent_instance.run(stock_code="600584", max_posts=2, use_llm=False)
+        assert final_state.stock_code == "600584"
+        assert final_state.stock_name == "长电科技"
+        assert len(final_state.sentiment_list) == 2
+        assert final_state.reflection is not None
+        assert final_state.iteration_count == 1
