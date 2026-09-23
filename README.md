@@ -53,33 +53,51 @@
 
 ---
 
-## 框架工程分层架构 (对齐 Datawhale《Hello Agents》标准)
+## 框架工程分层架构 (严格对齐 Datawhale《Hello Agents》标准)
 
-本项目严格对齐 Datawhale《Hello Agents》分层解耦与“万物皆为工具 (Everything is a Tool)”的核心设计规范，构建了完备的通用智能体底座与金融量化业务层：
+本项目严格对齐 Datawhale《Hello Agents》分层解耦与“万物皆为工具 (Everything is a Tool)”的核心设计规范，构建了完备的通用智能体底座、经典范式集与金融量化业务层：
 
 ```text
 src/
 ├── core/                       # [核心框架底座层 - 第七章]
-│   ├── config.py               # AgentConfig 集中式环境与模型配置中心
+│   ├── config.py               # AgentConfig 集中式环境与模型配置中心 (from_env)
 │   ├── message.py              # Message 与 RoleType 标准通信数据契约 (兼容 OpenAI 字典)
-│   ├── llm.py                  # HelloAgentsLLM 统一模型中枢网关
-│   ├── agent.py                # BaseAgent 顶层智能体抽象基类 (生命周期与上下文维护)
+│   ├── llm.py                  # HelloAgentsLLM 统一模型中枢网关 (多提供商自动探测与流式支持)
+│   ├── agent.py                # Agent / BaseAgent 顶层智能体抽象基类 (生命周期与上下文维护)
+│   ├── exceptions.py           # 框架统一异常体系 (AgentException, ToolException, LLMException 等)
 │   ├── parser.py               # RobustAgentParser 生产级自愈解析器 (正则容错与报错反馈)
 │   ├── schema.py               # Pydantic V2 结构化舆情与立场契约
 │   └── market_schema.py        # 盘面数据结构化快照契约
-├── agent/                      # [智能体范式与业务实现层 - 第四/七章]
-│   ├── base_reflection.py      # ReflectionAgent 通用自我反思智能体范式 (执行-评估-反思闭环)
-│   ├── engine.py               # SentimentArbitrageAgent 继承反思范式的金融实战 Agent
+├── agents/                     # [智能体经典范式层 - 第四/七章]
+│   ├── simple_agent.py         # SimpleAgent 基础多轮对话与流式生成智能体
+│   ├── react_agent.py          # ReActAgent 经典推理行动闭环 (Thought-Action-Observation)
+│   ├── reflection_agent.py     # ReflectionAgent 通用自我反思范式 (生成-批判-修正)
+│   ├── plan_solve_agent.py     # PlanAndSolveAgent 规划求解范式 (步骤列表分解与逐步推进)
+│   ├── function_call_agent.py  # FunctionCallAgent 原生工具函数调用智能体
+│   └── ...                     # (兼容支持 src/agent/ 路径及业务落地)
+├── agent/                      # [金融业务实战 Agent]
+│   ├── base_reflection.py      # 通用反思基类别名兼容
+│   ├── engine.py               # SentimentArbitrageAgent 多源舆情与盘面背离反思研判 Agent
 │   └── state.py                # 智能体状态机与背离决策契约
 ├── tools/                      # [工具系统层 - 第七章“万物皆为工具”]
 │   ├── base.py                 # Tool 抽象基类与 ToolParameter (自动输出 OpenAI Function Schema)
 │   ├── registry.py             # ToolRegistry 集中式工具注册发现中心与函数装饰器
+│   ├── chain.py                # ToolChain 管道责任链执行器 (上一步输出作为下一步入参)
+│   ├── async_executor.py       # AsyncToolExecutor 线程池多工具并发执行器
+│   ├── builtin/                # 框架内置工具包
+│   │   ├── calculator.py       # CalculatorTool 安全科学计算器
+│   │   └── search.py           # SearchTool 多源搜索引擎 (带本地模拟降级)
 │   ├── scraper.py              # StockForumScraper 多源金融情报采集工具
 │   ├── market.py               # MarketDataTool 秒级 L1 客观盘面验证工具
 │   └── analyzer.py             # FinancialSentimentAnalyzer 深度消歧与反讽研判工具
 ├── memory/                     # [记忆与检索系统 - 第八章]
+│   ├── manager.py              # MemoryManager 记忆生命周期管理 (WorkingMemory TTL 与长期记忆固化/遗忘)
 │   ├── buffer.py               # ConversationBufferMemory 短期多轮对话滑动窗口缓存
-│   └── knowledge.py            # FinancialKnowledgeRetriever A 股黑话与反讽隐喻领域知识库
+│   ├── knowledge.py            # FinancialKnowledgeRetriever A 股黑话与反讽隐喻领域知识库
+│   └── tools.py                # MemoryTool 与 RAGTool 工具化封装 (无缝接入 ToolRegistry)
+├── protocols/                  # [通信协议系统 - 第十章]
+│   ├── mcp/                    # MCP (Model Context Protocol) 协议实现 (Client, Server, Tool)
+│   └── a2a/                    # A2A (Agent-to-Agent) 任务生命周期与工件协同协议
 └── evals/                      # [智能体性能评估体系 - 第十二章]
     ├── dataset.py              # 15 组 A 股极端与反讽黄金测试集
     └── benchmark.py            # 自动化基准测试流水线 (规则 Baseline vs LLM Agent)
