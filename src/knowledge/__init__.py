@@ -9,6 +9,7 @@ from src.knowledge.schema import (
 from src.knowledge.chunker import FinancialChunker
 from src.knowledge.embeddings import BaseEmbedding, DeterministicHashEmbedding
 from src.knowledge.vector_store import InMemoryVectorStore, cosine_similarity
+from src.knowledge.sparse_retriever import BM25Retriever
 
 __all__ = [
     "KnowledgeType",
@@ -20,4 +21,5 @@ __all__ = [
     "DeterministicHashEmbedding",
     "InMemoryVectorStore",
     "cosine_similarity",
+    "BM25Retriever",
 ]
