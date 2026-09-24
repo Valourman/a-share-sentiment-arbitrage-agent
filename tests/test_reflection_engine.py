@@ -98,3 +98,42 @@ def test_agent_run_pipeline_with_mock_tools(agent_instance):
         assert len(final_state.sentiment_list) == 2
         assert final_state.reflection is not None
         assert final_state.iteration_count == 1
+
+
+def test_agent_run_pipeline_with_progress_callback(agent_instance):
+    """测试通过 progress_callback 实时报告执行进度与当前阶段"""
+    mock_posts = [
+        RawPost(title="主升浪启动", author="张三", publish_time="10:00", read_count=10, comment_count=1),
+    ]
+    mock_snapshot = MarketSnapshot(
+        stock_code="600584",
+        stock_name="长电科技",
+        current_price=30.0,
+        pre_close=30.0,
+        change_percent=1.0,
+        turnover_amount_yi=10.0,
+        is_trading=True
+    )
+
+    progress_records = []
+
+    def dummy_callback(progress: float, desc: str):
+        progress_records.append((progress, desc))
+
+    with patch.object(agent_instance.scraper, "fetch_guba_posts", return_value=mock_posts), \
+         patch.object(agent_instance.market_tool, "fetch_snapshot", return_value=mock_snapshot):
+
+        agent_instance.run(
+            stock_code="600584",
+            max_posts=1,
+            use_llm=False,
+            progress_callback=dummy_callback
+        )
+
+    # 验证关键阶段均触发了进度更新且单调递增至 1.0 (100%)
+    assert len(progress_records) >= 4
+    percentages = [p[0] for p in progress_records]
+    assert percentages[0] > 0.0
+    assert percentages[-1] == 1.0
+    assert percentages == sorted(percentages)
+

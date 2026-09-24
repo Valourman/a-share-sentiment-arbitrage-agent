@@ -395,7 +395,7 @@ if "settings" not in st.session_state:
 
 
 def run_configured_agent(stock_code: str):
-    """根据当前会话动态设置构造 LLM 与 Agent 并执行研判"""
+    """根据当前会话动态设置构造 LLM 与 Agent 并执行研判，附带实时动态进度条"""
     st.session_state.current_stock = stock_code
     settings = st.session_state.settings
     config = AgentConfig(
@@ -407,13 +407,28 @@ def run_configured_agent(stock_code: str):
     )
     llm = HelloAgentsLLM(config=config)
     agent = SentimentArbitrageAgent(llm=llm)
-    state = agent.run(
-        stock_code=stock_code,
-        max_posts=int(settings["max_posts"]),
-        use_llm=bool(settings["use_llm"]),
-    )
-    st.session_state.active_state = state
-    return state
+
+    # 动态进度条挂载
+    progress_placeholder = st.empty()
+    progress_bar = progress_placeholder.progress(0.05, text=f"Agent 启动中：准备多源全景研判 [{stock_code}]...")
+
+    def on_progress(val: float, desc: str):
+        try:
+            progress_bar.progress(min(max(float(val), 0.0), 1.0), text=desc)
+        except Exception:
+            pass
+
+    try:
+        state = agent.run(
+            stock_code=stock_code,
+            max_posts=int(settings["max_posts"]),
+            use_llm=bool(settings["use_llm"]),
+            progress_callback=on_progress,
+        )
+        st.session_state.active_state = state
+        return state
+    finally:
+        progress_placeholder.empty()
 
 
 # ============================================================

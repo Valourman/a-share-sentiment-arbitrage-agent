@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 from rich.console import Console
 
 from src.core.agent import BaseAgent
@@ -44,12 +44,15 @@ class SentimentArbitrageAgent(ReflectionAgent):
         """步骤一：多源情报并行采集与散户语义深度消歧"""
         max_posts = kwargs.get("max_posts", 30)
         use_llm = kwargs.get("use_llm", True)
+        progress_callback: Optional[Callable[[float, str], None]] = kwargs.get("progress_callback")
 
         console.print(f"[bold cyan]>>> 启动 Agent 多源立体研判任务: 标的代码 [{stock_code}][/bold cyan]")
         state = AgentState(stock_code=stock_code)
         state.iteration_count = 1
 
         # 1. 多源信息采集
+        if progress_callback:
+            progress_callback(0.15, f"Step 1/4: 正在多方位并发采集 [{stock_code}] 股吧、新闻与官方披露...")
         console.print("[yellow]Step 1/4: 正在多方位并发采集多源金融情报 (股吧全量+主流新闻+官方公告)...[/yellow]")
         posts = self.scraper.fetch_guba_posts(stock_code, max_posts=max_posts)
         news = self.scraper.fetch_financial_news(stock_code, max_items=5)
@@ -63,6 +66,8 @@ class SentimentArbitrageAgent(ReflectionAgent):
 
         # 2. 散户情绪全量消歧与反讽识别
         mode_desc = "大模型思维链(LLM)" if use_llm else "启发式规则(Mock)"
+        if progress_callback:
+            progress_callback(0.45, f"Step 2/4: 执行全量散户语料反讽消歧 (样本量: {len(posts)})...")
         console.print(f"[yellow]Step 2/4: 执行全量散户语料深度消歧 (模式: {mode_desc}, 样本量: {len(posts)})...[/yellow]")
         total_score = 0.0
         for p in posts:
@@ -83,7 +88,10 @@ class SentimentArbitrageAgent(ReflectionAgent):
         """步骤二：调用确定性行情事实源提取客观盘面数据，进行交叉对照"""
         state = initial_result
         stock_code = state.stock_code
+        progress_callback: Optional[Callable[[float, str], None]] = kwargs.get("progress_callback")
 
+        if progress_callback:
+            progress_callback(0.75, f"Step 3/4: 提取 [{stock_code}] 秒级客观盘面事实量价基准...")
         console.print("[yellow]Step 3/4: 提取秒级客观盘面事实行情 (基准数据)...[/yellow]")
         market_snap = self.market_tool.fetch_snapshot(stock_code)
         state.market_data = market_snap
@@ -154,6 +162,9 @@ class SentimentArbitrageAgent(ReflectionAgent):
         **kwargs: Any,
     ) -> AgentState:
         """步骤三：反思背离根源，生成可解释性因果推导建议"""
+        progress_callback: Optional[Callable[[float, str], None]] = kwargs.get("progress_callback")
+        if progress_callback:
+            progress_callback(0.90, "Step 4/4: 触发多源立体反思机制 (Reflection Loop)...")
         console.print("[yellow]Step 4/4: 触发多源立体反思机制 (Reflection Loop)...[/yellow]")
         state = initial_result
         state.reflection = self._reflect_on_divergence(state)
@@ -162,11 +173,14 @@ class SentimentArbitrageAgent(ReflectionAgent):
     def run(self, stock_code: str, max_posts: int = 30, use_llm: bool = True, **kwargs: Any) -> AgentState:
         """
         启动多源交叉金融研判 Agent 任务
-        完全保持原有的调用签名与返回数据类型兼容性
+        完全保持原有的调用签名与返回数据类型兼容性，支持可选的 progress_callback
         """
+        progress_callback: Optional[Callable[[float, str], None]] = kwargs.get("progress_callback")
         self.add_message(Message.user(f"研判标的股票代码: {stock_code}"))
         state = self.execute_initial(stock_code, max_posts=max_posts, use_llm=use_llm, **kwargs)
         critique = self.evaluate_critique(state, **kwargs)
         final_state = self.reflect_and_refine(state, critique, **kwargs)
         self.add_message(Message.assistant(f"完成标的 [{stock_code}] 研判报告"))
+        if progress_callback:
+            progress_callback(1.0, f"研判完成，已生成标的 [{stock_code}] 决策报告")
         return final_state
