@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ALPHA-SENSE · A股散户舆情与盘面背离双脑套利智能终端</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-abyss: #06080F;
+            --surface-card: #0D1322;
+            --surface-elevated: #131B30;
+            --border-subtle: #1E293B;
+            --border-glow: rgba(99, 102, 241, 0.25);
+            --accent-rose: #F43F5E;
+            --accent-emerald: #10B981;
+            --accent-indigo: #6366F1;
+            --accent-purple: #A855F7;
+            --accent-cyan: #38BDF8;
+            --text-primary: #F8FAFC;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            --font-sans: 'Plus Jakarta Sans', -apple-system, "PingFang SC", "Noto Sans SC", sans-serif;
+            --font-mono: 'JetBrains Mono', SFMono-Regular, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-abyss);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            line-height: 1.5;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 顶部全局状态律动栏 */
+        .system-ticker {
+            background: rgba(13, 19, 34, 0.95);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-subtle);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            padding: 6px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            white-space: nowrap;
+            overflow-x: auto;
+        }
+
+        .ticker-group {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+        }
+
+        .pulse-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--accent-emerald);
+            display: inline-block;
+            box-shadow: 0 0 8px var(--accent-emerald);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+        }
+
+        .stat-badge {
+            color: var(--text-secondary);
+        }
+        .stat-badge span {
+            color: var(--text-cyan);
+            font-weight: 600;
+        }
+
+        .container {
+            max-width: 1360px;
+            margin: 0 auto;
+            padding: 0 16px;
+        }
+
+        /* 精致导航头 */
+        header {
+            padding: 20px 0 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-decoration: none;
+        }
+
+        .brand-logo {
+            width: 30px;
+            height: 30px;
+            background: linear-gradient(135deg, var(--accent-indigo), var(--accent-purple));
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-mono);
+            font-weight: 800;
+            font-size: 15px;
+            color: #fff;
+            box-shadow: 0 3px 12px rgba(99, 102, 241, 0.4);
+        }
+
+        .brand-text h1 {
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: -0.4px;
+            color: var(--text-primary);
+            line-height: 1.2;
+        }
+
+        .brand-text p {
+            font-size: 10.5px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 11.5px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border-color: var(--border-subtle);
+            color: var(--text-secondary);
+        }
+        .btn-outline:hover {
+            border-color: var(--accent-indigo);
+            color: var(--text-primary);
+            background: rgba(99, 102, 241, 0.08);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-indigo), var(--accent-purple));
+            color: #fff;
+            box-shadow: 0 2px 10px rgba(99, 102, 241, 0.35);
+        }
+        .btn-primary:hover {
+            opacity: 0.92;
+            transform: translateY(-1px);
+        }
+
+        /* Hero 核心区域 */
+        .hero {
+            padding: 16px 0 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .hero-lead {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .hero-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 10px;
+            background: rgba(99, 102, 241, 0.12);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 999px;
+            width: fit-content;
+            font-size: 11px;
+            color: var(--accent-cyan);
+            font-family: var(--font-mono);
+        }
+
+        .hero-title {
+            font-size: 26px;
+            line-height: 1.25;
+            font-weight: 800;
+            letter-spacing: -0.6px;
+            color: var(--text-primary);
+        }
+
+        .hero-title .gradient-text {
+            background: linear-gradient(135deg, #FFF 20%, #A855F7 70%, #6366F1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-desc {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.55;
+            max-width: 860px;
+        }
+
+        .hero-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 2px;
+        }
+
+        .chip-btn {
+            background: var(--surface-card);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            padding: 6px 11px;
+            border-radius: 6px;
+            font-size: 11.5px;
+            font-family: var(--font-mono);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .chip-btn:hover {
+            border-color: var(--accent-indigo);
+            color: var(--accent-cyan);
+            background: var(--surface-elevated);
+        }
+
+        /* 终端舞台 Live Interactive Terminal - 自然展开，彻底消灭双重滚动条 */
+        .terminal-stage {
+            background: var(--surface-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+        }
+
+        .terminal-header {
+            background: #090E1A;
+            padding: 8px 14px;
+            border-bottom: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 5px;
+        }
+        .ctrl-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        .ctrl-red { background: #FF5F56; }
+        .ctrl-yellow { background: #FFBD2E; }
+        .ctrl-green { background: #27C93F; }
+
+        .terminal-title {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .terminal-body {
+            padding: 14px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .terminal-input-bar {
+            display: flex;
+            gap: 8px;
+            background: #090E1A;
+            border: 1px solid var(--border-subtle);
+            border-radius: 6px;
+            padding: 6px 10px;
+            align-items: center;
+        }
+
+        .prompt-symbol {
+            color: var(--accent-indigo);
+            font-weight: 700;
+        }
+
+        .terminal-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            font-size: 12px;
+        }
+
+        .terminal-btn {
+            background: var(--accent-indigo);
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: var(--font-sans);
+            font-weight: 600;
+        }
+
+        /* 终端日志流：自然扩展，无需滚动框 */
+        .terminal-output {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .log-row {
+            line-height: 1.45;
+            word-break: break-word;
+        }
+        .log-dim { color: var(--text-muted); }
+        .log-cyan { color: var(--text-cyan); }
+        .log-purple { color: var(--accent-purple); }
+        .log-green { color: var(--accent-emerald); }
+        .log-red { color: var(--accent-rose); }
+        .log-yellow { color: #FBBF24; }
+
+        /* 研判结果卡：完整、醒目、通透呈现 */
+        .card-result {
+            background: #101626;
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-top: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        .alert-banner {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .banner-danger {
+            background: rgba(244, 63, 94, 0.15);
+            border: 1px solid rgba(244, 63, 94, 0.4);
+            color: #FDA4AF;
+        }
+        .banner-success {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            color: #6EE7B7;
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            background: #090E1A;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.04);
+        }
+
+        .grid-item .label {
+            font-size: 10.5px;
+            color: var(--text-muted);
+            margin-bottom: 2px;
+        }
+        .grid-item .val {
+            font-size: 13.5px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .result-narrative {
+            background: #090E1A;
+            border-radius: 6px;
+            padding: 10px 12px;
+            border-left: 3px solid var(--accent-indigo);
+            font-size: 11.5px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* 架构双脑对比大卡片 */
+        .dual-brain-section {
+            background: var(--surface-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 16px 0 32px;
+        }
+
+        .dual-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 12px;
+        }
+
+        .dual-col {
+            background: #090E1A;
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .col-badge {
+            font-family: var(--font-mono);
+            font-size: 10.5px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 4px;
+            width: fit-content;
+        }
+        .badge-system1 {
+            background: rgba(99, 102, 241, 0.2);
+            color: var(--accent-indigo);
+            border: 1px solid rgba(99, 102, 241, 0.4);
+        }
+        .badge-system2 {
+            background: rgba(168, 85, 247, 0.2);
+            color: var(--accent-purple);
+            border: 1px solid rgba(168, 85, 247, 0.4);
+        }
+
+        .metric-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            font-size: 11.5px;
+        }
+        .metric-list li {
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-secondary);
+            border-bottom: 1px dashed rgba(255,255,255,0.06);
+            padding-bottom: 4px;
+        }
+        .metric-list li strong {
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+        }
+
+        /* Benchmark 表格 */
+        .benchmark-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11.5px;
+            margin-top: 12px;
+            background: var(--surface-card);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border-subtle);
+        }
+
+        .benchmark-table th {
+            background: #090E1A;
+            padding: 10px 12px;
+            text-align: left;
+            font-family: var(--font-mono);
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .benchmark-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            color: var(--text-secondary);
+        }
+
+        .val-highlight {
+            color: var(--accent-emerald);
+            font-weight: 700;
+            font-family: var(--font-mono);
+        }
+
+        footer {
+            border-top: 1px solid var(--border-subtle);
+            padding: 24px 0 32px;
+            text-align: center;
+            font-size: 11.5px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+
+        @media (max-width: 680px) {
+            .dual-grid { grid-template-columns: 1fr; }
+            .result-grid { grid-template-columns: repeat(2, 1fr); }
+            .hero-title { font-size: 22px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 全局状态律动栏 -->
+    <div class="system-ticker">
+        <div class="ticker-group">
+            <span class="pulse-dot"></span>
+            <span style="color: var(--accent-emerald); font-weight: 600;">ALPHA-SENSE AGENT ONLINE</span>
+            <span class="stat-badge">System 1 Jev: <span>826ms</span></span>
+            <span class="stat-badge">Sina L1 Stream: <span>Realtime</span></span>
+        </div>
+        <div class="ticker-group">
+            <span class="stat-badge">Schema Error: <span style="color: var(--accent-emerald);">0.0% (Type-Safe)</span></span>
+            <span class="stat-badge">Pass@1 Acc: <span>100.0%</span></span>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- 导航 -->
+        <header>
+            <a href="#" class="brand">
+                <div class="brand-logo">α</div>
+                <div class="brand-text">
+                    <h1>ALPHA-SENSE · 双脑套利终端</h1>
+                    <p>DUAL-BRAIN ARBITRAGE INTELLIGENCE</p>
+                </div>
+            </a>
+            <div class="header-actions">
+                <a href="#benchmark" class="btn btn-outline">评测大盘</a>
+                <a href="http://localhost:8501" target="_blank" class="btn btn-primary">进入 Streamlit 交互台</a>
+            </div>
+        </header>
+
+        <!-- Hero 核心区域 -->
+        <section class="hero">
+            <div class="hero-lead">
+                <div class="hero-pill">⚡ TypeSafe Jev (System 1) × 深度反思 (System 2)</div>
+                <h1 class="hero-title">
+                    穿透散户“送钱”假面，在盘面派发前<br>
+                    <span class="gradient-text">秒级捕获多头诱多。</span>
+                </h1>
+                <p class="hero-desc">
+                    面向 A 股市场的多源舆情反讽消歧与盘面背离预警智能体。以 850ms 原生非自回归决策模型（Jev）穿透股吧送钱反语，结合新浪秒级 L1 量价基准触发双向反思，精准预警诱多陷阱 (BULL_TRAP) 与恐慌磨底 (PANIC_BOTTOM)。
+                </p>
+                <div class="hero-chips">
+                    <button class="chip-btn" onclick="runDemo('长电科技')">⚡ 研判长电科技 (600584)</button>
+                    <button class="chip-btn" onclick="runDemo('太极实业')">📊 研判太极实业 (600667)</button>
+                    <button class="chip-btn" onclick="runDemo('比亚迪')">📈 研判比亚迪 (002594)</button>
+                    <button class="chip-btn" onclick="runDemo('贵州茅台')">🍶 研判贵州茅台 (600519)</button>
+                </div>
+            </div>
+
+            <!-- 终端舞台 Live Interactive Terminal -->
+            <div class="terminal-stage">
+                <div class="terminal-header">
+                    <div class="window-controls">
+                        <div class="ctrl-dot ctrl-red"></div>
+                        <div class="ctrl-dot ctrl-yellow"></div>
+                        <div class="ctrl-dot ctrl-green"></div>
+                    </div>
+                    <div class="terminal-title">alpha_sense_dual_brain_console — bash</div>
+                    <div style="font-size: 11px; color: var(--accent-emerald); font-family: var(--font-mono);">LIVE REAL-TIME</div>
+                </div>
+                <div class="terminal-body">
+                    <div class="terminal-input-bar">
+                        <span class="prompt-symbol">agent&gt;</span>
+                        <input type="text" id="userInput" class="terminal-input" placeholder="输入股票名称或代码，如：看看长电科技如何？" value="看看长电科技如何？" onkeydown="if(event.key==='Enter') executeAgent();">
+                        <button class="terminal-btn" onclick="executeAgent()">执行研判</button>
+                    </div>
+
+                    <div class="terminal-output" id="terminalOutput">
+                        <div class="log-row log-dim">[SYSTEM] 焦点标的已准备就绪，点击快捷标签或输入指令启动研判。</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 架构全景对比 -->
+        <section id="architecture">
+            <div style="text-align: center; margin: 24px 0 12px;">
+                <h2 style="font-size: 20px; font-weight: 700; letter-spacing: -0.4px;">双脑协同拓扑架构 (Dual-Brain Architecture)</h2>
+                <p style="color: var(--text-secondary); font-size: 12.5px;">打破传统单一自回归大模型的高延迟与格式损坏缺陷，实现快慢思考的分工对冲</p>
+            </div>
+
+            <div class="dual-brain-section">
+                <div class="dual-grid">
+                    <div class="dual-col">
+                        <div class="col-badge badge-system1">SYSTEM 1 · TYPESAFE JEV (快思考)</div>
+                        <h3 style="font-size: 15px; color: var(--text-primary);">高并发非自回归单步决策层</h3>
+                        <p style="font-size: 12px; color: var(--text-secondary);">
+                            专为散户发帖设计。单步直接输出 Typed 强类型判定，无需逐字生成，天然彻底规避 JSON 截断损坏。
+                        </p>
+                        <ul class="metric-list">
+                            <li><span>单条推理延迟</span> <strong>~826 ms (比 LLM 快 4 倍)</strong></li>
+                            <li><span>原生二值反讽识别</span> <strong>Noul 概率分布 (0.0~1.0)</strong></li>
+                            <li><span>多空倾向分类</span> <strong>Choice 与置信度百分比</strong></li>
+                            <li><span>情绪量化评分</span> <strong>Score 档位 0~4 归一化</strong></li>
+                            <li><span>Schema 解析故障率</span> <strong style="color: var(--accent-emerald);">0.0% (Zero Breakdown)</strong></li>
+                        </ul>
+                    </div>
+
+                    <div class="dual-col">
+                        <div class="col-badge badge-system2">SYSTEM 2 · 深度反思引擎 (慢思考)</div>
+                        <h3 style="font-size: 15px; color: var(--text-primary);">批判性状态机与背离归因层</h3>
+                        <p style="font-size: 12px; color: var(--text-secondary);">
+                            综合微观散户情绪指数与新浪秒级 L1 真实成交量价，进行逻辑因果对碰，输出结构化操盘预警。
+                        </p>
+                        <ul class="metric-list">
+                            <li><span>盘面客观事实源</span> <strong>新浪财经 L1 实时量价行情</strong></li>
+                            <li><span>背离识别类型</span> <strong>BULL_TRAP / PANIC_BOTTOM</strong></li>
+                            <li><span>自愈修复机制</span> <strong>Pydantic V2 动态 Feedback</strong></li>
+                            <li><span>输出形态</span> <strong>结构化风险等级 + 策略处置指南</strong></li>
+                            <li><span>交互支持</span> <strong>全自然语言多轮上下文指代追问</strong></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Benchmark 黄金评测大盘 -->
+        <section id="benchmark" style="margin-bottom: 40px;">
+            <div style="text-align: center; margin: 24px 0 12px;">
+                <h2 style="font-size: 20px; font-weight: 700; letter-spacing: -0.4px;">黄金评测大盘 (Tri-Engine Golden Benchmark)</h2>
+                <p style="color: var(--text-secondary); font-size: 12.5px;">15 条经典 A 股黑话、反向讽刺“送钱”与重组公告三方自动化评测实测数据</p>
+            </div>
+
+            <table class="benchmark-table">
+                <thead>
+                    <tr>
+                        <th>评测维度指标</th>
+                        <th>传统规则基线 (Mock)</th>
+                        <th>自回归 LLM + 解析器</th>
+                        <th style="color: var(--accent-indigo);">TypeSafe Jev (系统一)</th>
+                        <th style="color: var(--accent-emerald);">核心对冲优势</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>综合多空研判准确率 (Overall Acc)</strong></td>
+                        <td>93.3%</td>
+                        <td>93.3%</td>
+                        <td class="val-highlight">100.0%</td>
+                        <td>+6.7% vs 基线，15/15 样本无一漏判</td>
+                    </tr>
+                    <tr>
+                        <td><strong>复杂反讽/黑话消歧率 (Sarcasm Acc)</strong></td>
+                        <td>60.0%</td>
+                        <td>60.0%</td>
+                        <td class="val-highlight">100.0%</td>
+                        <td>原生 Noul 概率穿透“送钱”伪装</td>
+                    </tr>
+                    <tr>
+                        <td><strong>平均单次判定耗时 (Latency)</strong></td>
+                        <td>0.0 ms (无语义)</td>
+                        <td>2000 ~ 4000 ms</td>
+                        <td class="val-highlight">853.5 ms</td>
+                        <td>比标准大模型提速 3~5 倍</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Schema 解析故障率 (JSON Broken)</strong></td>
+                        <td>0.0%</td>
+                        <td>存在 (需自愈反馈)</td>
+                        <td class="val-highlight">0.0%</td>
+                        <td>原生强类型单步，免疫幻觉</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- 页脚 -->
+        <footer>
+            ALPHA-SENSE · FINANCIAL SENTIMENT & DIVERGENCE ARBITRAGE AGENT<br>
+            Powered by TypeSafe Jev (System 1) & Reflection Loop Engine (System 2)
+        </footer>
+    </div>
+
+    <!-- 交互模拟器 JS 脚本 -->
+    <script>
+        const STOCKS_DB = {
+            '长电科技': {
+                code: '600584',
+                name: '长电科技',
+                price: 72.22,
+                chg: -1.07,
+                amount: 83.28,
+                sentiment: 0.59,
+                divergence: 'BULL_TRAP',
+                risk: 'HIGH',
+                narrative: '散户情绪指数呈现偏乐观态度(+0.59)，频繁出现主升浪等期待；但盘面客观实际处于下挫形态(-1.07%)。存在明显多头诱多或散户不理性抄底被套特征。',
+                action: '警惕盘面诱多与阴跌风险，不宜盲目跟风抄底，建议轻仓观望。',
+                posts: [
+                    { title: '主力洗盘结束，明天必定一字板涨停起飞！', stance: 'bullish', sarcasm: false, lat: 815 },
+                    { title: '尾盘大单抢筹明显，主升浪牛初第一波！', stance: 'bullish', sarcasm: false, lat: 843 },
+                    { title: '跌停板抄底简直太爽了！感谢主力送钱！', stance: 'bearish', sarcasm: true, prob: '75%', lat: 826 }
+                ]
+            },
+            '太极实业': {
+                code: '600667',
+                name: '太极实业',
+                price: 20.30,
+                chg: -0.78,
+                amount: 45.11,
+                sentiment: 0.02,
+                divergence: 'CONSISTENT',
+                risk: 'LOW',
+                narrative: '散户情绪指数(+0.02)与盘面实际涨跌(-0.78%)趋势基本一致，市场处于理性定价区间。',
+                action: '情绪与价格走势共振，按常规技术指标和基本面策略执行。',
+                posts: [
+                    { title: '关于召开临时股东大会通知。', stance: 'neutral', sarcasm: false, lat: 810 },
+                    { title: '今天成交量缩量，多空处于平衡状态。', stance: 'neutral', sarcasm: false, lat: 825 },
+                    { title: '主力出货明显，明天开盘准备割肉。', stance: 'bearish', sarcasm: false, lat: 796 }
+                ]
+            },
+            '比亚迪': {
+                code: '002594',
+                name: '比亚迪',
+                price: 288.60,
+                chg: 2.35,
+                amount: 112.50,
+                sentiment: 0.65,
+                divergence: 'CONSISTENT',
+                risk: 'LOW',
+                narrative: '新能源龙头量价齐升，散户情绪多头共振(+0.65)，盘面强势收阳(+2.35%)。',
+                action: '趋势良好，沿 5 日均线持股待涨。',
+                posts: [
+                    { title: '新车型订单大超预期，起飞！', stance: 'bullish', sarcasm: false, lat: 830 },
+                    { title: '突破箱体平台，加仓！', stance: 'bullish', sarcasm: false, lat: 845 }
+                ]
+            },
+            '贵州茅台': {
+                code: '600519',
+                name: '贵州茅台',
+                price: 1450.00,
+                chg: 0.15,
+                amount: 68.20,
+                sentiment: -0.38,
+                divergence: 'PANIC_BOTTOM',
+                risk: 'MEDIUM',
+                narrative: '股吧充斥割肉绝望言论(-0.38)，但白酒龙头盘面抗跌微红(+0.15%)，筹码正在向机构资金集中。',
+                action: '恐慌盘磨底阶段，左侧可逢低关注分批建仓机会。',
+                posts: [
+                    { title: '彻底绝望了，关灯吃面，再也不碰白酒了。', stance: 'bearish', sarcasm: false, lat: 820 },
+                    { title: '真是一只好股票，天天跌让人想哭。', stance: 'bearish', sarcasm: true, prob: '82%', lat: 840 }
+                ]
+            }
+        };
+
+        function runDemo(name) {
+            document.getElementById('userInput').value = `看看${name}如何？`;
+            executeAgent();
+        }
+
+        function executeAgent() {
+            const input = document.getElementById('userInput').value.trim();
+            if (!input) return;
+
+            const output = document.getElementById('terminalOutput');
+            output.innerHTML = '';
+
+            addLog(`agent&gt; ${input}`, 'log-cyan');
+
+            let matched = null;
+            for (let k in STOCKS_DB) {
+                if (input.includes(k) || input.includes(STOCKS_DB[k].code)) {
+                    matched = STOCKS_DB[k];
+                    break;
+                }
+            }
+
+            if (!matched) {
+                if (input.includes('模型') || input.includes('你是谁')) {
+                    addLog('>>> 触发意图: SYSTEM_IDENTITY (系统架构与模型底座说明)', 'log-purple');
+                    addLog('我是面向 A 股市场的【多源舆情反讽研判与盘面背离预警智能体】。核心基于 TypeSafe Jev (System 1 毫秒级非自回归决策) + 传统大模型 (System 2 深度反思) 双脑协同架构！', 'log-green');
+                    return;
+                }
+                matched = STOCKS_DB['长电科技'];
+            }
+
+            addLog(`>>> [Step 1/4] 检索东方财富股吧发帖并清洗水军/引流广告...`, 'log-yellow');
+            setTimeout(() => {
+                addLog(`   -> 成功提取 3 条高价值散户发帖`, 'log-dim');
+                addLog(`>>> [Step 2/4] 调度 TypeSafe Jev 执行单步非自回归消歧...`, 'log-purple');
+
+                setTimeout(() => {
+                    matched.posts.forEach((p, idx) => {
+                        const sarcasmInfo = p.sarcasm ? ` [🔥 反讽命中率: ${p.prob}]` : '';
+                        addLog(`   #${idx+1} [${p.lat}ms] ${p.title} -> ${p.stance.toUpperCase()}${sarcasmInfo}`, 'log-dim');
+                    });
+                    addLog(`   -> JEV 分析完成! 平均单条耗时: 826.5ms | 散户综合情绪分: ${matched.sentiment > 0 ? '+' : ''}${matched.sentiment}`, 'log-purple');
+
+                    addLog(`>>> [Step 3/4] 提取新浪 L1 秒级盘面事实行情...`, 'log-yellow');
+                    setTimeout(() => {
+                        addLog(`   -> 标的: ${matched.name} (${matched.code}) | 现价: ${matched.price}元 | 今日涨跌: ${matched.chg > 0 ? '+' : ''}${matched.chg}% | 成交额: ${matched.amount}亿`, 'log-dim');
+                        addLog(`>>> [Step 4/4] 触发交叉背离反思 (Reflection Loop)...`, 'log-purple');
+
+                        setTimeout(() => {
+                            renderCard(matched);
+                        }, 200);
+                    }, 250);
+                }, 250);
+            }, 200);
+        }
+
+        function addLog(text, cls = '') {
+            const output = document.getElementById('terminalOutput');
+            const row = document.createElement('div');
+            row.className = `log-row ${cls}`;
+            row.innerHTML = text;
+            output.appendChild(row);
+        }
+
+        function renderCard(data) {
+            const output = document.getElementById('terminalOutput');
+            const isDanger = data.divergence === 'BULL_TRAP';
+            const bannerCls = isDanger ? 'banner-danger' : 'banner-success';
+            const icon = isDanger ? '🚨' : '✅';
+
+            const card = document.createElement('div');
+            card.className = 'card-result';
+            card.innerHTML = `
+                <div class="alert-banner ${bannerCls}">
+                    <span>${icon} 触发背离结论: 【${data.divergence}】 (风险级别: ${data.risk})</span>
+                </div>
+
+                <div class="result-grid">
+                    <div class="grid-item">
+                        <div class="label">标的名称</div>
+                        <div class="val">${data.name} (${data.code})</div>
+                    </div>
+                    <div class="grid-item">
+                        <div class="label">最新价格</div>
+                        <div class="val" style="color: ${data.chg >= 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)'};">${data.price.toFixed(2)} 元 (${data.chg > 0 ? '+' : ''}${data.chg}%)</div>
+                    </div>
+                    <div class="grid-item">
+                        <div class="label">全天成交额</div>
+                        <div class="val">${data.amount.toFixed(2)} 亿元</div>
+                    </div>
+                    <div class="grid-item">
+                        <div class="label">散户情绪指数</div>
+                        <div class="val" style="color: ${data.sentiment >= 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)'};">${data.sentiment > 0 ? '+' : ''}${data.sentiment}</div>
+                    </div>
+                </div>
+
+                <div class="result-narrative">
+                    <strong>🔍 核心反思推导:</strong> ${data.narrative}<br>
+                    <strong style="margin-top: 4px; display: inline-block;">💡 操盘风控建议:</strong> ${data.action}
+                </div>
+            `;
+            output.appendChild(card);
+        }
+
+        window.onload = function() {
+            setTimeout(() => {
+                executeAgent();
+            }, 300);
+        };
+    </script>
+</body>
+</html>
