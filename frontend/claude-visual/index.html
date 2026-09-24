@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Visual Style - A股舆情反思研判 Agent</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+</head>
+<body>
+  <div class="container">
+    <!-- Navbar & Theme Switcher -->
+    <header class="navbar">
+      <div class="brand-wrapper">
+        <div class="brand-icon">
+          <i data-lucide="sparkles" style="width: 22px; height: 22px;"></i>
+        </div>
+        <div>
+          <h1 class="brand-title">Claude Visual Style Quant Agent</h1>
+          <p style="font-size: 0.8125rem; color: var(--muted-foreground);">
+            A股舆情反讽研判与盘面背离预警智能体 • Inspired by Anthropic Design System
+          </p>
+        </div>
+      </div>
+      <button id="theme-toggle" class="theme-toggle-btn" title="切换深色/浅色模式">
+        <i id="theme-icon" data-lucide="moon" style="width: 18px; height: 18px;"></i>
+      </button>
+    </header>
+
+    <!-- Control Panel -->
+    <div class="control-card">
+      <div class="input-group">
+        <label class="input-label" for="stock-input">股票代码 (6位 A 股代码)</label>
+        <input type="text" id="stock-input" class="text-input" value="600584" placeholder="如 600584, 600519, 002594">
+      </div>
+      <div class="input-group">
+        <label class="input-label" for="depth-select">语料分析深度</label>
+        <select id="depth-select" class="text-input" style="cursor: pointer;">
+          <option value="5">深度 5 条 (推荐基准)</option>
+          <option value="10">深度 10 条 (完整穿透)</option>
+        </select>
+      </div>
+      <button id="run-btn" class="btn-primary">
+        <i data-lucide="play" style="width: 16px; height: 16px;"></i>
+        <span>运行 Agent 研判</span>
+      </button>
+    </div>
+
+    <!-- Output Dashboard (Dynamic) -->
+    <div id="results-area">
+      <!-- 4 Metrics Grid -->
+      <div class="grid-metrics">
+        <div class="card">
+          <div class="metric-label">标的资产</div>
+          <div class="metric-number" id="m-name">长电科技</div>
+          <div class="badge badge-gray" id="m-code">代码: 600584</div>
+        </div>
+        <div class="card">
+          <div class="metric-label">盘面最新价</div>
+          <div class="metric-number text-down-green" id="m-price">¥38.50</div>
+          <div class="badge badge-bearish-green" id="m-chg">今日涨跌: ▼ -1.28%</div>
+        </div>
+        <div class="card">
+          <div class="metric-label">今日成交额</div>
+          <div class="metric-number" id="m-turnover">15.42 亿</div>
+          <div class="badge badge-gray">秒级 L1 实时盘面</div>
+        </div>
+        <div class="card">
+          <div class="metric-label">散户情绪得分</div>
+          <div class="metric-number text-up-red" id="m-sentiment">+0.62</div>
+          <div class="badge badge-bullish-red" id="m-sentiment-badge">▲ 偏多亢奋</div>
+        </div>
+      </div>
+
+      <!-- Reflection Alert -->
+      <div id="reflection-alert" class="alert alert-danger">
+        <div style="font-size: 1.5rem; line-height: 1;">🚨</div>
+        <div>
+          <div class="alert-title" id="alert-title">Agent 背离警报: 【BULL_TRAP】 (风险等级: HIGH)</div>
+          <div class="alert-desc" id="alert-narrative">
+            散户情绪指数呈现偏乐观态度(+0.62)，社区频繁出现“主力又发红包”、“主升浪开启”等期待；但盘面客观实际处于下挫形态(-1.28%)。存在明显多头诱多与散户盲目接盘被套风险。
+          </div>
+          <div class="alert-desc" style="margin-top: 0.5rem; color: var(--foreground);" id="alert-suggestion">
+            <b>💡 量化操作建议:</b> 警惕盘面诱多与阴跌风险，不宜盲目跟风抄底，建议轻仓观望。
+          </div>
+        </div>
+      </div>
+
+      <!-- Disambiguation & CoT List -->
+      <div class="posts-section-header">
+        <h3 class="posts-section-title">🔍 散户语料语义消歧与思维链 (CoT) 归因</h3>
+        <p style="font-size: 0.8125rem; color: var(--muted-foreground);">
+          基于大模型思维链与 A 股特殊隐喻词典，穿透散户“正话反说/赌气破防”的表层语义。
+        </p>
+      </div>
+
+      <div id="posts-container">
+        <!-- Post 1 -->
+        <div class="post-item">
+          <div style="display: flex; gap: 0.75rem; align-items: center; font-size: 0.75rem; color: var(--muted-foreground); margin-bottom: 0.5rem;">
+            <span style="font-weight: 500; color: var(--foreground); background: var(--muted); padding: 0.15rem 0.5rem; border-radius: 4px;">👤 股民: 天天吃面的小韭菜</span>
+            <span>🕒 09-13 14:48</span>
+            <span style="margin-left: auto;">👁️ 3,254 阅读 · 💬 46 评论</span>
+          </div>
+          <div class="post-title" style="font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem;">
+            💬 “好耶主力又送钱了，接着跌，明天直接满仓给你抬轿子！”
+          </div>
+          <div class="post-meta">
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <span class="badge badge-bearish-green">▼ 空头破防</span>
+              <span class="badge badge-terracotta">🔥 反讽识别</span>
+              <span style="font-size: 0.75rem; color: var(--muted-foreground);">真实情绪: <b class="text-down-green">-0.80</b></span>
+            </div>
+            <span style="font-size: 0.75rem; color: var(--muted-foreground);">置信度: 95%</span>
+          </div>
+          <div style="font-size: 0.75rem; color: var(--muted-foreground); margin-top: 0.35rem;">
+            📌 <b>识别黑话:</b> 抬轿子、送钱
+          </div>
+          <div class="post-reasoning">
+            <b>🤖 模型思考推导 (CoT):</b> 散户表面用“好耶、送钱、满仓抬轿”等积极正向词汇，实为在连跌受挫后的反向讥讽与宣泄，真实核心立场为极度悲观 (-0.80)，成功判定为反讽 (Sarcasm=True)。
+          </div>
+        </div>
+
+        <!-- Post 2 -->
+        <div class="post-item">
+          <div style="display: flex; gap: 0.75rem; align-items: center; font-size: 0.75rem; color: var(--muted-foreground); margin-bottom: 0.5rem;">
+            <span style="font-weight: 500; color: var(--foreground); background: var(--muted); padding: 0.15rem 0.5rem; border-radius: 4px;">👤 股民: 捉妖大队长</span>
+            <span>🕒 09-13 14:32</span>
+            <span style="margin-left: auto;">👁️ 6,890 阅读 · 💬 89 评论</span>
+          </div>
+          <div class="post-title" style="font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem;">
+            💬 “底部大单持续吃货，量价齐升，明天大概率一字板涨停！”
+          </div>
+          <div class="post-meta">
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <span class="badge badge-bullish-red">▲ 多头看多</span>
+              <span style="font-size: 0.75rem; color: var(--muted-foreground);">情绪强度: <b class="text-up-red">+0.75</b></span>
+            </div>
+            <span style="font-size: 0.75rem; color: var(--muted-foreground);">置信度: 90%</span>
+          </div>
+          <div style="font-size: 0.75rem; color: var(--muted-foreground); margin-top: 0.35rem;">
+            📌 <b>识别黑话:</b> 吃货、一字板
+          </div>
+          <div class="post-reasoning">
+            <b>🤖 模型思考推导 (CoT):</b> 分析大单吃货与量价形态，呈现明确的多头买入预期，无反语讽刺成分，判定为真实看多 (+0.75)。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // Dark Mode Toggle Logic
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    const themeIcon = document.getElementById('theme-icon');
+    const htmlEl = document.documentElement;
+
+    // Check saved preference or OS preference
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      htmlEl.classList.add('dark');
+      updateThemeIcon(true);
+    }
+
+    themeToggleBtn.addEventListener('click', () => {
+      const isDark = htmlEl.classList.toggle('dark');
+      updateThemeIcon(isDark);
+    });
+
+    function updateThemeIcon(isDark) {
+      themeIcon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+      lucide.createIcons();
+    }
+
+    // Dynamic Simulation Button
+    const runBtn = document.getElementById('run-btn');
+    const stockInput = document.getElementById('stock-input');
+
+    runBtn.addEventListener('click', () => {
+      const code = stockInput.value.trim() || "600584";
+      runBtn.innerHTML = '<i data-lucide="loader-2" class="spin" style="width: 16px; height: 16px;"></i> <span>正在反思推导...</span>';
+      lucide.createIcons();
+
+      setTimeout(() => {
+        runBtn.innerHTML = '<i data-lucide="play" style="width: 16px; height: 16px;"></i> <span>运行 Agent 研判</span>';
+        lucide.createIcons();
+        document.getElementById('m-code').innerText = "代码: " + code;
+      }, 700);
+    });
+  </script>
+</body>
+</html>
