@@ -2,6 +2,7 @@ import streamlit as st
 import re
 import textwrap
 from src.agent.engine import SentimentArbitrageAgent
+from src.agent.conversational import ConversationalArbitrageAgent
 from src.agent.state import AgentState
 from src.core.config import AgentConfig, global_config
 from src.core.llm import HelloAgentsLLM
@@ -456,6 +457,16 @@ if "active_state" not in st.session_state:
     st.session_state.active_state = None
 if "current_stock" not in st.session_state:
     st.session_state.current_stock = None
+if "trace_summary" not in st.session_state:
+    st.session_state.trace_summary = None
+if "trace_spans" not in st.session_state:
+    st.session_state.trace_spans = []
+if "app_mode" not in st.session_state:
+    st.session_state.app_mode = "📊 标的研判"
+if "chat_agent" not in st.session_state:
+    st.session_state.chat_agent = None
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 if "settings" not in st.session_state:
     st.session_state.settings = {
         "api_key": global_config.openai_api_key or "",
@@ -500,6 +511,16 @@ def run_configured_agent(stock_code: str):
             progress_callback=on_progress,
         )
         st.session_state.active_state = state
+        st.session_state.trace_summary = agent.tracer.get_summary()
+        st.session_state.trace_spans = [
+            {
+                "环节": s.name,
+                "类型": s.span_type,
+                "耗时 (s)": s.duration,
+                "状态": "✅ 成功" if s.status == "success" else f"❌ {s.error or '失败'}",
+            }
+            for s in agent.tracer.spans
+        ]
         return state
     finally:
         progress_placeholder.empty()
@@ -517,9 +538,19 @@ with st.sidebar:
     """
     st.markdown(textwrap.dedent(sidebar_brand_html).strip(), unsafe_allow_html=True)
 
+    st.session_state.app_mode = st.radio(
+        "工作模式",
+        options=["📊 标的研判", "💬 对话问答"],
+        index=0 if st.session_state.app_mode == "📊 标的研判" else 1,
+        horizontal=True,
+        label_visibility="collapsed",
+    )
+
     if st.button("发起新标的研判", use_container_width=True):
         st.session_state.active_state = None
         st.session_state.current_stock = None
+        st.session_state.trace_summary = None
+        st.session_state.trace_spans = []
         st.rerun()
 
     # 系统与模型设置折叠面板
@@ -662,27 +693,75 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ============================================================
-# 6. 处理底部悬浮输入舱的指令提交 (Chat Input)
+# 6. 处理底部悬浮输入舱的指令提交 (Chat Input, 仅研判模式)
 # ============================================================
-user_input = st.chat_input("输入 6 位 A 股股票代码 (如 600667, 600584) 启动多源全景智能研判...")
+if st.session_state.app_mode == "📊 标的研判":
+    user_input = st.chat_input("输入 6 位 A 股股票代码 (如 600667, 600584) 启动多源全景智能研判...")
 
-if user_input:
-    code_match = re.search(r"\b(\d{6})\b", user_input)
-    target_code = code_match.group(1) if code_match else user_input.strip()
+    if user_input:
+        code_match = re.search(r"\b(\d{6})\b", user_input)
+        target_code = code_match.group(1) if code_match else user_input.strip()
 
-    with st.spinner(f"Agent 正在多方位全量采集 [{target_code}] 股吧、新闻与盘面，并启动大模型多步反思..."):
-        try:
-            run_configured_agent(target_code)
-        except Exception as e:
-            st.error(f"Agent 研判异常: {e}")
-    st.rerun()
+        with st.spinner(f"Agent 正在多方位全量采集 [{target_code}] 股吧、新闻与盘面，并启动大模型多步反思..."):
+            try:
+                run_configured_agent(target_code)
+            except Exception as e:
+                st.error(f"Agent 研判异常: {e}")
+        st.rerun()
 
 # ============================================================
 # 7. 主视口内容区：空态欢迎 vs 多源研判结果排版
 # ============================================================
 state: AgentState = st.session_state.active_state
 
-if not state:
+if st.session_state.app_mode == "💬 对话问答":
+    # ---------------- 对话问答模式：ConversationalArbitrageAgent 多轮交互 ----------------
+    st.markdown("""
+    <div style="text-align: center; padding: 1.5rem 1rem 1rem 1rem;">
+        <div style="font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; background: linear-gradient(135deg, #4285F4 0%, #9B72CF 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem;">对话式研判助手</div>
+        <div style="color: #5F6368; font-size: 0.85rem; max-width: 560px; margin: 0 auto; line-height: 1.6;">
+            直接输入股票名称（如"太极实业"、"长电科技"）或 6 位代码触发全流程研判，支持多轮追问、买卖咨询、归因剖析与金融概念科普。
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if st.session_state.chat_agent is None:
+        with st.spinner("正在初始化对话式智能体 (System 1 + System 2 双脑架构)..."):
+            st.session_state.chat_agent = ConversationalArbitrageAgent()
+    chat_agent = st.session_state.chat_agent
+
+    # 历史消息回放
+    for msg in st.session_state.chat_history:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    # 提问表单 (回车即提交)
+    with st.form("chat_form", clear_on_submit=True):
+        question = st.text_input(
+            "提问",
+            placeholder="例如：看看太极实业如何？/ 它现在能抄底吗？/ 什么是多头诱多陷阱？",
+            label_visibility="collapsed",
+        )
+        submitted = st.form_submit_button("发送", use_container_width=True)
+
+    if submitted and question.strip():
+        with st.spinner("Agent 正在思考并实时检索舆情与盘面..."):
+            try:
+                res = chat_agent.chat(question.strip())
+                reply = res.reply_text
+            except Exception as e:
+                reply = f"对话引擎暂时异常：{e}"
+        st.session_state.chat_history.append({"role": "user", "content": question.strip()})
+        st.session_state.chat_history.append({"role": "assistant", "content": reply})
+        st.rerun()
+
+    if st.session_state.chat_history:
+        if st.button("🧹 清空对话与焦点记忆", use_container_width=False):
+            chat_agent.clear_memory()
+            st.session_state.chat_history = []
+            st.rerun()
+
+elif not state:
     # ---------------- 空态：Gemini 经典居中 Hero ----------------
     st.markdown("""
     <div class="welcome-container">
@@ -817,6 +896,16 @@ else:
         - **第四步 [Pydantic V2 契约决策自愈]**：通过严格模式结构校验，生成交易防御建议。
         """
         st.markdown(textwrap.dedent(chain_md).strip())
+
+    # 链路追踪耗时面板 (AgentTracer)
+    if st.session_state.trace_summary:
+        ts = st.session_state.trace_summary
+        m1, m2, m3 = st.columns(3)
+        m1.metric("链路追踪跨度", f"{ts['total_spans']} 个")
+        m2.metric("全流程累计耗时", f"{ts['total_latency_seconds']} s")
+        m3.metric("异常环节", ", ".join(ts["failed_spans"]) if ts["has_error"] else "无")
+        with st.expander("⏱️ 全链路 Span 耗时明细 (AgentTracer)"):
+            st.dataframe(st.session_state.trace_spans, use_container_width=True, hide_index=True)
 
     # ============================================================
     # 8. 多源情报与执行日志分区展示 Tabs (Gemini 沉浸式标签页)

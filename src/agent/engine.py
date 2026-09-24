@@ -7,6 +7,7 @@ from src.core.llm import HelloAgentsLLM
 from src.core.message import Message
 from src.agent.base_reflection import ReflectionAgent
 from src.agent.state import AgentState, ReflectionDecision, DivergenceType, RiskLevel
+from src.core.tracer import AgentTracer
 from src.tools.scraper import StockForumScraper
 from src.tools.market import MarketDataTool
 from src.tools.analyzer import FinancialSentimentAnalyzer
@@ -40,6 +41,8 @@ class SentimentArbitrageAgent(ReflectionAgent):
         self.analyzer: FinancialSentimentAnalyzer = (
             self.tools.get("sentiment_analyzer") or FinancialSentimentAnalyzer(llm=self.llm)
         )
+        # 执行链路追踪器 (每次 run 自动重置，可通过 get_summary() 获取汇总指标)
+        self.tracer: AgentTracer = AgentTracer()
 
     def execute_initial(self, stock_code: str, **kwargs: Any) -> AgentState:
         """步骤一：多源情报并行采集与散户语义深度消歧"""
@@ -56,9 +59,11 @@ class SentimentArbitrageAgent(ReflectionAgent):
         if progress_callback:
             progress_callback(0.15, f"Step 1/4: 正在多方位并发采集 [{stock_code}] 股吧、新闻与官方披露...")
         console.print("[yellow]Step 1/4: 正在多方位并发采集多源金融情报 (股吧全量+主流新闻+官方公告)...[/yellow]")
-        posts = self.scraper.fetch_guba_posts(stock_code, max_posts=max_posts)
-        news = self.scraper.fetch_financial_news(stock_code, max_items=5)
-        announcements = self.scraper.fetch_announcements(stock_code, max_items=4)
+        with self.tracer.span("intel_collection", "tool", inputs={"stock_code": stock_code, "max_posts": max_posts}) as span:
+            posts = self.scraper.fetch_guba_posts(stock_code, max_posts=max_posts)
+            news = self.scraper.fetch_financial_news(stock_code, max_items=5)
+            announcements = self.scraper.fetch_announcements(stock_code, max_items=4)
+            span.outputs = {"posts": len(posts), "news": len(news), "announcements": len(announcements)}
 
         state.news_list = news
         state.announcements = announcements
@@ -79,28 +84,30 @@ class SentimentArbitrageAgent(ReflectionAgent):
             progress_callback(0.45, f"Step 2/4: 执行全量散户语料反讽消歧 (样本量: {len(posts)})...")
         console.print(f"[yellow]Step 2/4: 执行全量散户语料深度消歧 (模式: {mode_desc}, 样本量: {len(posts)})...[/yellow]")
         total_score = 0.0
-        for idx, p in enumerate(posts):
-            if engine_mode:
-                res = self.analyzer.analyze(p, engine_mode=engine_mode)
-            elif use_llm:
-                res = self.analyzer.analyze_with_llm(p)
-            else:
-                res = self.analyzer.analyze_mock(p)
-            state.sentiment_list.append(res)
-            total_score += res.sentiment_score
+        with self.tracer.span("sentiment_disambiguation", "llm", inputs={"samples": len(posts), "engine_mode": engine_mode or ("llm" if use_llm else "mock")}) as span:
+            for idx, p in enumerate(posts):
+                if engine_mode:
+                    res = self.analyzer.analyze(p, engine_mode=engine_mode)
+                elif use_llm:
+                    res = self.analyzer.analyze_with_llm(p)
+                else:
+                    res = self.analyzer.analyze_mock(p)
+                state.sentiment_list.append(res)
+                total_score += res.sentiment_score
 
-            # 结构化记录单条语料消歧日志
-            t_str = datetime.now().strftime("%H:%M:%S")
-            raw_stance = getattr(res.stance, "value", str(res.stance))
-            slang_str = f"#{', #'.join(res.slang_detected)}" if res.slang_detected else "无特殊黑话"
-            sarcasm_str = "【识别到反讽语义翻转】" if res.is_sarcasm else "无反讽"
-            post_brief = (p.title[:45] + "...") if len(p.title) > 48 else p.title
-            state.execution_logs.append(
-                f"[{t_str}] [语料消歧 #{idx+1:02d}] 语料: “{post_brief}” | "
-                f"立场: {raw_stance} | 情绪分值: {res.sentiment_score:+.2f} | "
-                f"黑话: {slang_str} | 反讽: {sarcasm_str} | "
-                f"大模型消歧依据: {res.reasoning}"
-            )
+                # 结构化记录单条语料消歧日志
+                t_str = datetime.now().strftime("%H:%M:%S")
+                raw_stance = getattr(res.stance, "value", str(res.stance))
+                slang_str = f"#{', #'.join(res.slang_detected)}" if res.slang_detected else "无特殊黑话"
+                sarcasm_str = "【识别到反讽语义翻转】" if res.is_sarcasm else "无反讽"
+                post_brief = (p.title[:45] + "...") if len(p.title) > 48 else p.title
+                state.execution_logs.append(
+                    f"[{t_str}] [语料消歧 #{idx+1:02d}] 语料: “{post_brief}” | "
+                    f"立场: {raw_stance} | 情绪分值: {res.sentiment_score:+.2f} | "
+                    f"黑话: {slang_str} | 反讽: {sarcasm_str} | "
+                    f"大模型消歧依据: {res.reasoning}"
+                )
+            span.outputs = {"analyzed": len(state.sentiment_list)}
 
         if state.sentiment_list:
             state.average_sentiment = round(total_score / len(state.sentiment_list), 2)
@@ -120,7 +127,9 @@ class SentimentArbitrageAgent(ReflectionAgent):
         if progress_callback:
             progress_callback(0.75, f"Step 3/4: 提取 [{stock_code}] 秒级客观盘面事实量价基准...")
         console.print("[yellow]Step 3/4: 提取秒级客观盘面事实行情 (基准数据)...[/yellow]")
-        market_snap = self.market_tool.fetch_snapshot(stock_code)
+        with self.tracer.span("market_snapshot", "tool", inputs={"stock_code": stock_code}) as span:
+            market_snap = self.market_tool.fetch_snapshot(stock_code)
+            span.outputs = {"stock_name": market_snap.stock_name, "change_percent": market_snap.change_percent}
         state.market_data = market_snap
         state.stock_name = market_snap.stock_name
         console.print(f"   -> 标的: [bold]{market_snap.stock_name}[/bold], 现价: {market_snap.current_price}, 涨跌: {market_snap.change_percent}%, 成交额: {market_snap.turnover_amount_yi}亿")
@@ -198,7 +207,9 @@ class SentimentArbitrageAgent(ReflectionAgent):
             progress_callback(0.90, "Step 4/4: 触发多源立体反思机制 (Reflection Loop)...")
         console.print("[yellow]Step 4/4: 触发多源立体反思机制 (Reflection Loop)...[/yellow]")
         state = initial_result
-        state.reflection = self._reflect_on_divergence(state)
+        with self.tracer.span("divergence_reflection", "reflect", inputs={"average_sentiment": state.average_sentiment}) as span:
+            state.reflection = self._reflect_on_divergence(state)
+            span.outputs = {"divergence_type": getattr(state.reflection.divergence_type, "value", str(state.reflection.divergence_type))}
         if state.reflection:
             ref = state.reflection
             div_val = getattr(ref.divergence_type, "value", str(ref.divergence_type))
@@ -215,11 +226,21 @@ class SentimentArbitrageAgent(ReflectionAgent):
         完全保持原有的调用签名与返回数据类型兼容性，支持可选的 progress_callback
         """
         progress_callback: Optional[Callable[[float, str], None]] = kwargs.get("progress_callback")
+        # 每次研判重置链路追踪器，避免跨任务累计
+        self.tracer = AgentTracer()
         self.add_message(Message.user(f"研判标的股票代码: {stock_code}"))
         state = self.execute_initial(stock_code, max_posts=max_posts, use_llm=use_llm, **kwargs)
         critique = self.evaluate_critique(state, **kwargs)
         final_state = self.reflect_and_refine(state, critique, **kwargs)
         self.add_message(Message.assistant(f"完成标的 [{stock_code}] 研判报告"))
+
+        # 链路追踪汇总写入审计日志
+        trace_summary = self.tracer.get_summary()
+        failed_hint = f" | 失败环节: {', '.join(trace_summary['failed_spans'])}" if trace_summary["has_error"] else ""
+        final_state.execution_logs.append(
+            f"[{datetime.now().strftime('%H:%M:%S')}] [链路追踪] 全流程共 {trace_summary['total_spans']} 个追踪跨度，"
+            f"累计耗时 {trace_summary['total_latency_seconds']}s{failed_hint}"
+        )
         if progress_callback:
             progress_callback(1.0, f"研判完成，已生成标的 [{stock_code}] 决策报告")
         return final_state
