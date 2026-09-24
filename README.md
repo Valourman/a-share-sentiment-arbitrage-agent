@@ -1,6 +1,6 @@
 # 面向 A 股市场的多源舆情反讽研判与盘面背离预警 Agent
 
-本项目是一个具备真实工具调用 (Tool Use)、强类型契约校验 (Pydantic V2)、语义自愈解析 (Self-Correction Loop) 与 盘面交叉背离反思 (Reflection Engine) 的金融量化智能体。
+本项目是一个具备真实工具调用 (Tool Use)、强类型契约校验 (Pydantic V2)、语义自愈解析 (Self-Correction Loop)、多引擎情绪消歧 (TypeSafe Jev / LLM / 规则 Mock 可插拔) 与盘面交叉背离反思 (Reflection Engine) 的金融量化智能体。
 
 ## 业务痛点与竞品技术对比 (同花顺/东财 vs 本方案)
 
@@ -16,12 +16,15 @@
 
 ## 自动化量化评测结果 (Golden Benchmark Evals)
 
-我们在 `evals/dataset.py` 中构建了包含 15 条 A 股典型黑话、反讽破防、重组公告等真实语料的黄金测试集，自动化运行评测流水线 (`evals/benchmark.py`)：
+我们在 `evals/dataset.py` 中构建了包含 15 条 A 股典型黑话、反讽破防、重组公告等真实语料的黄金测试集，自动化运行评测流水线 (`evals/benchmark.py`)；并另建 35 条公开学术范式基准 (`evals/public_dataset.py`，融合 StockSentCN / ToSarcasm / SMP-ECISA 标注范式)，由 `evals/public_benchmark.py` 输出 Precision / Recall / F1、混淆矩阵与延迟分布报告：
 
 | 评测维度 | 规则基线引擎 (Baseline) | 本 Agent (LLM + 自愈架构) | 提升幅度 |
 | :--- | :--- | :--- | :--- |
-| **综合多空研判准确率** | 86.7% | **100.0%** | **+13.3%** |
-| **隐晦反讽/黑话识别率** | 40.0% | **100.0%** | **+60.0%** |
+| **综合多空研判准确率** (15 条自建黄金集) | 86.7% | **100.0%** | **+13.3%** |
+| **隐晦反讽/黑话识别率** (15 条自建黄金集) | 40.0% | **100.0%** | **+60.0%** |
+| **公开基准 Macro-F1** (35 条学术范式集) | — | **100.0%** | 含反讽专项 F1 100.0% |
+
+> 注：两套评测集样本规模有限（15 / 35 条），成绩用于验证架构有效性，不代表全市场分布下的泛化上界。
 
 ---
 
@@ -66,19 +69,20 @@ src/
 │   ├── agent.py                # Agent / BaseAgent 顶层智能体抽象基类 (生命周期与上下文维护)
 │   ├── exceptions.py           # 框架统一异常体系 (AgentException, ToolException, LLMException 等)
 │   ├── parser.py               # RobustAgentParser 生产级自愈解析器 (正则容错与报错反馈)
-│   ├── schema.py               # Pydantic V2 结构化舆情与立场契约
-│   └── market_schema.py        # 盘面数据结构化快照契约
+│   ├── schema.py               # Pydantic V2 结构化舆情与立场契约 (含引擎溯源与延迟字段)
+│   ├── market_schema.py        # 盘面数据结构化快照契约
+│   └── tracer.py               # AgentTracer 执行链路追踪器 (Span 耗时/入参出参/异常/token 统计)
 ├── agents/                     # [智能体经典范式层 - 第四/七章]
 │   ├── simple_agent.py         # SimpleAgent 基础多轮对话与流式生成智能体
 │   ├── react_agent.py          # ReActAgent 经典推理行动闭环 (Thought-Action-Observation)
 │   ├── reflection_agent.py     # ReflectionAgent 通用自我反思范式 (生成-批判-修正)
 │   ├── plan_solve_agent.py     # PlanAndSolveAgent 规划求解范式 (步骤列表分解与逐步推进)
-│   ├── function_call_agent.py  # FunctionCallAgent 原生工具函数调用智能体
-│   └── ...                     # (兼容支持 src/agent/ 路径及业务落地)
+│   └── function_call_agent.py  # FunctionCallAgent 原生工具函数调用智能体
 ├── agent/                      # [金融业务实战 Agent]
 │   ├── base_reflection.py      # 通用反思基类别名兼容
 │   ├── engine.py               # SentimentArbitrageAgent 多源舆情与盘面背离反思研判 Agent
-│   └── state.py                # 智能体状态机与背离决策契约
+│   ├── conversational.py       # ConversationalArbitrageAgent 对话式多轮问答 Agent (意图识别/实体继承)
+│   └── state.py                # 智能体状态机与背离决策契约 (含 execution_logs 审计日志)
 ├── tools/                      # [工具系统层 - 第七章“万物皆为工具”]
 │   ├── base.py                 # Tool 抽象基类与 ToolParameter (自动输出 OpenAI Function Schema)
 │   ├── registry.py             # ToolRegistry 集中式工具注册发现中心与函数装饰器
@@ -89,7 +93,8 @@ src/
 │   │   └── search.py           # SearchTool 多源搜索引擎 (带本地模拟降级)
 │   ├── scraper.py              # StockForumScraper 多源金融情报采集工具
 │   ├── market.py               # MarketDataTool 秒级 L1 客观盘面验证工具
-│   └── analyzer.py             # FinancialSentimentAnalyzer 深度消歧与反讽研判工具
+│   ├── stock_resolver.py       # StockResolver 自然语言股票实体解析器 (名称/代码双向映射)
+│   └── analyzer.py             # FinancialSentimentAnalyzer 多引擎情绪消歧工具 (Jev/LLM/Mock 可插拔)
 ├── memory/                     # [记忆与检索系统 - 第八章]
 │   ├── manager.py              # MemoryManager 记忆生命周期管理 (WorkingMemory TTL 与长期记忆固化/遗忘)
 │   ├── buffer.py               # ConversationBufferMemory 短期多轮对话滑动窗口缓存
@@ -103,12 +108,23 @@ src/
 │   ├── sparse_retriever.py     # BM25Retriever 金融专有关键词稀疏检索引擎
 │   ├── hybrid_engine.py        # FinancialRAGKnowledgeBase 双路 RRF 融合与半衰期时间衰减检索引擎
 │   └── tools.py                # FinancialKnowledgeTool 遵从 Hello-Agents 规范的知识感知工具
-├── protocols/                  # [通信协议系统 - 第十章]
-│   ├── mcp/                    # MCP (Model Context Protocol) 协议实现 (Client, Server, Tool)
-│   └── a2a/                    # A2A (Agent-to-Agent) 任务生命周期与工件协同协议
-└── evals/                      # [智能体性能评估体系 - 第十二章]
-    ├── dataset.py              # 15 组 A 股极端与反讽黄金测试集
-    └── benchmark.py            # 自动化基准测试流水线 (规则 Baseline vs LLM Agent)
+└── protocols/                  # [通信协议系统 - 第十章]
+    ├── mcp/                    # MCP 协议客户端与工具封装 (Client/Tool；Server 端待实现)
+    └── a2a/                    # A2A (Agent-to-Agent) 协议实验性骨架
+
+evals/                          # [智能体性能评估体系 - 第十二章，仓库根级]
+├── dataset.py                  # 15 组 A 股极端与反讽黄金测试集
+├── benchmark.py                # 自动化基准测试流水线 (规则 Baseline vs LLM Agent)
+├── public_dataset.py           # 35 条公开学术范式基准 (StockSentCN/ToSarcasm/SMP-ECISA)
+└── public_benchmark.py         # 学术级评测报告流水线 (P/R/F1、混淆矩阵、延迟分布)
+
+frontend/                       # [三套独立前端]
+├── index.html                  # Gemini 风免构建交互应用 (单文件打开即用)
+├── landing.html                # ALPHA-SENSE 暗黑风产品落地页
+├── claude-visual/              # Claude/Anthropic 设计风页面 (index.html + style.css)
+└── GeminiSentimentDashboard.tsx # React 18 + TS 组件源码 (可嵌入现代前端栈)
+
+server.py                       # 前端静态服务器 (python server.py → :8080 预览三套页面)
 ```
 
 ---
@@ -177,18 +193,22 @@ cp .env.example .env
 OPENAI_API_KEY=your_api_key_here
 OPENAI_BASE_URL=https://api.openai.com/v1  # 支持 Gemini / DeepSeek / 任何 OpenAI 兼容中转
 MODEL_NAME=gpt-4o-mini
+
+# 可选：TypeSafe Jev System 1 决策引擎 (未配置时自动降级 LLM -> 规则 Mock)
+TYPESAFE_API_KEY=
+TYPESAFE_BASE_URL=https://api.typesafe.ai/v1/systemone
+TYPESAFE_MODEL=jev-latest
+DEFAULT_SENTIMENT_ENGINE=auto  # jev / llm / mock / auto
 ```
 
 ### 3. 启动交互式 Web 仪表盘
 
-#### 方案 A：Google Gemini 现代设计系统 + Magic UI 动态微动效 (React + Tailwind 原生交互)
-项目提供了参考 **Google Gemini (gemini.google.com/app)** 与 **Magic UI (magicui.design)** 视觉哲学的全新生产级前端组件与独立交互应用：
-- **单文件免构建原生体验**：直接在浏览器中打开 `frontend/index.html` 即可体验纯正的 Gemini 视觉与交互（支持深浅色模式切换、Collapsible Rail 折叠导航、悬浮复合药丸输入舱、思维链展开）。
-- **Magic UI 核心动态动效集成**：
-  - **Border Beam（边框流光动效）**：为核心背离决策卡与底部输入舱增添细腻平滑的算力呼吸流光。
-  - **Number Ticker（数据平滑滚动计数器）**：L1 盘面现价、涨跌幅、成交额与情绪分通过缓动曲线平滑累加。
-  - **Marquee（市场舆情无缝跑马灯）**：欢迎界面集成双向无缝循环滚动的热点情报条，支持悬停暂停与快捷点选研判。
-- **组件源码集成**：查看 `frontend/GeminiSentimentDashboard.tsx`，采用 React 18 + TypeScript + Tailwind CSS 模块化构建，支持无缝嵌入现有现代前端技术栈。
+#### 方案 A：静态前端页面 (三套并存，免构建)
+执行 `python server.py` 启动静态服务器（默认 `http://localhost:8080`），或直接双击打开对应 HTML 文件：
+- **`frontend/index.html`**：Gemini 风交互应用 — 深浅色模式切换、折叠导航、思维链展开、Border Beam 流光、Number Ticker 平滑计数、舆情跑马灯。
+- **`frontend/landing.html`**：ALPHA-SENSE 暗黑风产品落地页 — 双脑架构拓扑与三引擎评测大盘展示。
+- **`frontend/claude-visual/`**：Claude/Anthropic 设计风页面。
+- 组件源码：`frontend/GeminiSentimentDashboard.tsx`（React 18 + TypeScript + Tailwind），可嵌入现代前端技术栈。
 
 #### 方案 B：Streamlit 仪表盘 (已升级 Gemini 美学皮肤)
 执行以下命令启动 Streamlit 前端交互工作台：
@@ -198,17 +218,30 @@ streamlit run app.py
 ```
 在浏览器中打开提示的本地地址（默认 `http://localhost:8501`），输入 6 位 A 股股票代码（如 `600519`, `600584`, `002594`），点击 **「启动智能反思研判」** 查看经过 Gemini 色彩与卡片化重构的决策大屏。
 
+#### 方案 C：对话式多轮问答 (Python API)
+```python
+from src.agent.conversational import ConversationalArbitrageAgent
+
+agent = ConversationalArbitrageAgent()
+agent.chat("看看太极实业如何？")        # 自动解析股票名并触发全流程研判
+agent.chat("那它今天成交额是多少？")     # 多轮上下文继承追问
+agent.chat("什么是多头诱多陷阱？")       # 金融概念科普
+```
+
 ### 4. 运行单元测试与量化评测
 
 ```bash
-# 运行单元测试套件 (包含解析器自愈、反思状态流转与工具层测试)
+# 运行单元测试套件 (包含解析器自愈、反思状态流转、工具层、链路追踪与对话式 Agent 测试)
 pytest -v tests/
 
 # 运行覆盖率检查
 pytest --cov=src tests/
 
-# 运行自动化黄金评测流水线
+# 运行自动化黄金评测流水线 (15 条自建语料)
 python -m evals.benchmark
+
+# 运行公开学术范式基准 (35 条，输出 P/R/F1、混淆矩阵与延迟分布)
+python -m evals.public_benchmark
 ```
 
 ---
