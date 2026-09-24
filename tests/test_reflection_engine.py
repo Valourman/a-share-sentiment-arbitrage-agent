@@ -137,3 +137,40 @@ def test_agent_run_pipeline_with_progress_callback(agent_instance):
     assert percentages[-1] == 1.0
     assert percentages == sorted(percentages)
 
+
+def test_agent_records_disambiguation_and_execution_logs(agent_instance):
+    """测试 Agent 在研判全过程中将散户消歧依据与反思决策链路完整记入 execution_logs"""
+    mock_posts = [
+        RawPost(title="两点理由往后可以关注闽泰：国家介入是支撑利好", author="散户甲", publish_time="10:00", read_count=120, comment_count=5),
+        RawPost(title="好耶，跌停又吃面了，感谢主力送钱！", author="散户乙", publish_time="10:05", read_count=210, comment_count=18),
+    ]
+    mock_snapshot = MarketSnapshot(
+        stock_code="600584",
+        stock_name="长电科技",
+        current_price=30.0,
+        pre_close=30.0,
+        change_percent=0.0,
+        turnover_amount_yi=8.0,
+        is_trading=True
+    )
+
+    with patch.object(agent_instance.scraper, "fetch_guba_posts", return_value=mock_posts), \
+         patch.object(agent_instance.market_tool, "fetch_snapshot", return_value=mock_snapshot):
+
+        final_state = agent_instance.run(stock_code="600584", max_posts=2, use_llm=False)
+
+    # 验证执行日志完整记录
+    logs = final_state.execution_logs
+    assert len(logs) >= 5  # 采集 + 2条消歧 + 情绪聚合 + 行情对照 + 反思决策
+
+    # 验证第一条语料消歧日志包含依据与标签
+    disambiguate_logs = [l for l in logs if "[语料消歧 #" in l]
+    assert len(disambiguate_logs) == 2
+    assert "大模型消歧依据:" in disambiguate_logs[0]
+    assert "大模型消歧依据:" in disambiguate_logs[1]
+    assert "识别到反讽语义翻转" in disambiguate_logs[1]
+
+    # 验证行情对照与反思推导阶段亦有日志归档
+    assert any("[行情事实对照]" in l for l in logs)
+    assert any("[多维反思决策]" in l for l in logs)
+

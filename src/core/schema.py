@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -43,3 +43,7 @@ class SentimentAnalysisResult(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0, default=0.8, description="判定置信度")
     slang_detected: List[str] = Field(default_factory=list, description="命中的股市隐喻/黑话")
     reasoning: str = Field(description="严谨的研判逻辑链 (COT推导过程)")
+    engine_used: Optional[str] = Field(default=None, description="实际执行研判的引擎: jev / llm / mock")
+    probabilities: Dict[str, Any] = Field(default_factory=dict, description="多空立场概率分布 (Jev Choice 输出)")
+    sarcasm_probability: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="反讽概率 (Jev Noul 输出)")
+    latency_ms: Optional[float] = Field(default=None, description="单次研判耗时 (毫秒)")

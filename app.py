@@ -1,5 +1,6 @@
 import streamlit as st
 import re
+import textwrap
 from src.agent.engine import SentimentArbitrageAgent
 from src.agent.state import AgentState
 from src.core.config import AgentConfig, global_config
@@ -291,6 +292,79 @@ footer { visibility: hidden !important; }
     margin-right: 0.3rem;
 }
 
+/* 结构化消歧日志终端容器 (Log Terminal) */
+.log-terminal {
+    background-color: #0F172A;
+    color: #E2E8F0;
+    border-radius: 0.85rem;
+    padding: 1.1rem 1.35rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.76rem;
+    line-height: 1.65;
+    max-height: 480px;
+    overflow-y: auto;
+    border: 1px solid #1E293B;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+.log-terminal-line {
+    margin-bottom: 0.45rem;
+    word-break: break-all;
+}
+.log-tag-info {
+    color: #38BDF8;
+    font-weight: 600;
+}
+.log-tag-disambiguate {
+    color: #C084FC;
+    font-weight: 600;
+}
+.log-tag-fact {
+    color: #34D399;
+    font-weight: 600;
+}
+.log-tag-decision {
+    color: #FBBF24;
+    font-weight: 600;
+}
+.log-tag-reasoning {
+    color: #94A3B8;
+}
+
+/* 卡片内嵌消歧日志折叠器 */
+.disambiguation-details {
+    margin-top: 0.4rem;
+    border-top: 1px dashed #E5E7EB;
+    padding-top: 0.35rem;
+}
+.disambiguation-details summary {
+    cursor: pointer;
+    font-size: 0.74rem;
+    font-weight: 500;
+    color: #6B7280;
+    user-select: none;
+    transition: color 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+.disambiguation-details summary:hover {
+    color: #1A73E8;
+}
+.disambiguation-details[open] summary {
+    color: #1A73E8;
+    margin-bottom: 0.35rem;
+}
+.disambiguation-log-box {
+    background: #F8FAFC;
+    border-left: 3px solid #3B82F6;
+    border-radius: 0 0.5rem 0.5rem 0;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.74rem;
+    color: #334155;
+    line-height: 1.55;
+    font-family: 'JetBrains Mono', monospace;
+}
+
 /* 底部悬浮复合输入舱 (Chat Input) */
 [data-testid="stChatInput"] {
     border-radius: 9999px !important;
@@ -435,12 +509,13 @@ def run_configured_agent(stock_code: str):
 # 4. 左侧折叠侧边栏 (Gemini Rail 规范)
 # ============================================================
 with st.sidebar:
-    st.markdown("""
+    sidebar_brand_html = """
     <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.25rem 1rem 0.25rem;">
         <span style="font-weight: 700; font-size: 1.15rem; background: linear-gradient(135deg, #4285F4, #9B72CF); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Gemini</span>
         <span style="font-size: 0.7rem; padding: 0.15rem 0.5rem; background: #DBEAFE; color: #1D4ED8; border-radius: 9999px; font-weight: 600;">Pro</span>
     </div>
-    """, unsafe_allow_html=True)
+    """
+    st.markdown(textwrap.dedent(sidebar_brand_html).strip(), unsafe_allow_html=True)
 
     if st.button("发起新标的研判", use_container_width=True):
         st.session_state.active_state = None
@@ -553,13 +628,14 @@ with st.sidebar:
     cur_p = st.session_state.settings["max_posts"]
     cur_llm = "开启" if st.session_state.settings["use_llm"] else "关闭"
     st.markdown("---")
-    st.markdown(f"""
+    sidebar_info_html = f"""
     <div style="font-size: 0.75rem; color: #6B7280; line-height: 1.6; padding: 0.25rem;">
         <span class="info-label-tag">模型</span> <strong>当前模型</strong>：{cur_m}<br>
         <span class="info-label-tag">策略</span> <strong>分析深度</strong>：{cur_p} 条 (反思消歧: {cur_llm})<br>
         <span class="info-label-tag">信源</span> <strong>多源覆盖</strong>：股吧全量 + 专业财经新闻 + 官方披露公告 + 秒级 L1 盘面
     </div>
-    """, unsafe_allow_html=True)
+    """
+    st.markdown(textwrap.dedent(sidebar_info_html).strip(), unsafe_allow_html=True)
 
 # ============================================================
 # 5. 顶栏极简 App Bar
@@ -647,13 +723,14 @@ if not state:
 
 else:
     # ---------------- 研判结果态：Gemini 多源立体排版 ----------------
-    st.markdown(f"""
+    user_bubble_html = f"""
     <div class="user-msg-bubble">
         <div class="user-msg-content">
             启动标的 <strong style="color: #2563EB;">[{state.stock_name} ({state.stock_code})]</strong> 的全量散户情绪消歧、主流资讯整合与多方位异动背离研判。
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """
+    st.markdown(textwrap.dedent(user_bubble_html).strip(), unsafe_allow_html=True)
 
     price = state.market_data.current_price if state.market_data else 0.0
     chg = state.market_data.change_percent if state.market_data else 0.0
@@ -663,7 +740,7 @@ else:
     chg_color = "#DC2626" if is_up else "#059669"
     sentiment_color = "#DC2626" if sentiment >= 0 else "#059669"
 
-    st.markdown(f"""
+    market_grid_html = f"""
     <div class="gemini-ai-container">
         <div class="gemini-sparkle-avatar">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="white">
@@ -696,7 +773,8 @@ else:
             </div>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """
+    st.markdown(textwrap.dedent(market_grid_html).strip(), unsafe_allow_html=True)
 
     # 背离研判雷达警报卡片
     ref = state.reflection
@@ -709,7 +787,7 @@ else:
         badge_text = "#B91C1C" if is_div else "#065F46"
         status_dot = '<span class="status-indicator-dot alert"></span>' if is_div else '<span class="status-indicator-dot normal"></span>'
 
-        st.markdown(f"""
+        radar_card_html = f"""
         <div class="{radar_class}">
             <div class="radar-header">
                 <div class="radar-status">
@@ -727,28 +805,32 @@ else:
                 <strong>交易策略与风控提示：</strong>{ref.action_suggestion}
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """
+        st.markdown(textwrap.dedent(radar_card_html).strip(), unsafe_allow_html=True)
 
     # Gemini 思维链展开抽屉
     with st.expander("Gemini 大模型多源思维链语义推理过程 (4 个步骤)"):
-        st.markdown(f"""
+        chain_md = f"""
         - **第一步 [客观行情事实]**：提取实时现价 **{price:.2f} 元**，日内变动 **{chg:+.2f}%**，成交量能 **{turnover:.2f} 亿元**。
         - **第二步 [多方位信息聚合]**：无限制抓取东方财富股吧全部 **{len(state.sentiment_list)} 条有效原帖**，并同步比对新浪主流新闻与官方公告。
         - **第三步 [深度反讽消歧与博弈反思]**：大模型消除『赢麻了』『抬轿子』等网络倒装反语，综合情绪值定格在 **{sentiment:+.2f}**，对比盘面判定背离类型。
         - **第四步 [Pydantic V2 契约决策自愈]**：通过严格模式结构校验，生成交易防御建议。
-        """)
+        """
+        st.markdown(textwrap.dedent(chain_md).strip())
 
     # ============================================================
-    # 8. 多源情报分区展示 Tabs (Gemini 沉浸式标签页)
+    # 8. 多源情报与执行日志分区展示 Tabs (Gemini 沉浸式标签页)
     # ============================================================
-    tab_guba, tab_news, tab_ann = st.tabs([
-        f"股吧全量散户语料消歧 ({len(state.sentiment_list)} 条样本)",
-        f"主流专业财经资讯与主力动向 ({len(state.news_list)} 篇)",
-        f"上市公司官方披露公告 ({len(state.announcements)} 份)"
+    execution_logs = getattr(state, "execution_logs", [])
+    tab_guba, tab_news, tab_ann, tab_logs = st.tabs([
+        f"股吧散户语料 ({len(state.sentiment_list)} 条样本)",
+        f"主流专业资讯 ({len(state.news_list)} 篇)",
+        f"上市公司官方披露 ({len(state.announcements)} 份)",
+        f"大模型消歧与全流程执行日志 ({len(execution_logs)} 条流水)"
     ])
 
     with tab_guba:
-        st.markdown("<div style='font-size: 0.8rem; color: #6B7280; margin-bottom: 0.75rem;'>自动抓取该页全部真实散户发帖，已剔除 70%+ 水军广告并消除反讽语义翻转：</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size: 0.8rem; color: #6B7280; margin-bottom: 0.75rem;'>自动抓取该页全部真实散户发帖，已剔除 70%+ 水军广告并消除反讽语义翻转（大模型消歧依据已归档入日志）：</div>", unsafe_allow_html=True)
         for idx, item in enumerate(state.sentiment_list):
             raw_val = str(getattr(item.stance, "value", item.stance)).lower()
             if "bull" in raw_val or "多" in raw_val:
@@ -768,8 +850,9 @@ else:
             sarcasm_html = '<span class="sarcasm-pill">识别到反讽语义翻转</span>' if item.is_sarcasm else ''
 
             post_content = getattr(item, "raw_title", None) or f"股吧散户讨论语料 #{idx + 1}"
+            reason_text = item.reasoning or "表意明确，无特殊反向修辞。"
 
-            st.markdown(f"""
+            guba_card_html = f"""
             <div class="info-card">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
                     <div>
@@ -783,20 +866,24 @@ else:
                         情绪分值: <span style="color: {'#DC2626' if item.sentiment_score >= 0 else '#059669'};">{item.sentiment_score:+.2f}</span>
                     </div>
                 </div>
-                <div style="font-size: 0.875rem; color: #1F2937; margin: 0.4rem 0; padding-left: 0.75rem; border-left: 3px solid #E5E7EB; font-style: italic;">
+                <div style="font-size: 0.875rem; color: #1F2937; margin: 0.4rem 0 0.5rem 0; padding-left: 0.75rem; border-left: 3px solid #E5E7EB; font-style: italic;">
                     “{post_content}”
                 </div>
-                <div style="font-size: 0.75rem; color: #6B7280;">
-                    <strong>大模型消歧依据：</strong>{item.reasoning}
-                </div>
+                <details class="disambiguation-details">
+                    <summary>📋 查看大模型消歧依据与日志</summary>
+                    <div class="disambiguation-log-box">
+                        <strong>大模型消歧依据：</strong>{reason_text}
+                    </div>
+                </details>
             </div>
-            """, unsafe_allow_html=True)
+            """
+            st.markdown(textwrap.dedent(guba_card_html).strip(), unsafe_allow_html=True)
 
     with tab_news:
         if state.news_list:
             for n_idx, news in enumerate(state.news_list):
                 link_html = f'<a href="{news.url}" target="_blank" style="color: #1A73E8; text-decoration: none; font-size: 0.8rem; margin-left: 0.5rem;">查看原文 ↗</a>' if news.url else ''
-                st.markdown(f"""
+                news_card_html = f"""
                 <div class="info-card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                         <span style="font-size: 0.72rem; padding: 0.15rem 0.5rem; background: #E0F2FE; color: #0369A1; border-radius: 9999px; font-weight: 600;">
@@ -808,7 +895,8 @@ else:
                         {news.title} {link_html}
                     </div>
                 </div>
-                """, unsafe_allow_html=True)
+                """
+                st.markdown(textwrap.dedent(news_card_html).strip(), unsafe_allow_html=True)
         else:
             st.info("暂未获取到该标的日内专业新闻资讯。")
 
@@ -816,7 +904,7 @@ else:
         if state.announcements:
             for a_idx, ann in enumerate(state.announcements):
                 link_html = f'<a href="{ann.url}" target="_blank" style="color: #1A73E8; text-decoration: none; font-size: 0.8rem; margin-left: 0.5rem;">官方查阅 ↗</a>' if ann.url else ''
-                st.markdown(f"""
+                ann_card_html = f"""
                 <div class="info-card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                         <span style="font-size: 0.72rem; padding: 0.15rem 0.5rem; background: #FEF3C7; color: #92400E; border-radius: 9999px; font-weight: 600;">
@@ -828,6 +916,49 @@ else:
                         {ann.title} {link_html}
                     </div>
                 </div>
-                """, unsafe_allow_html=True)
+                """
+                st.markdown(textwrap.dedent(ann_card_html).strip(), unsafe_allow_html=True)
         else:
             st.info("暂未获取到该标的近期官方公告。")
+
+    with tab_logs:
+        st.markdown("<div style='font-size: 0.8rem; color: #6B7280; margin-bottom: 0.75rem;'>全流程执行日志与大模型语料消歧依据审计流水：</div>", unsafe_allow_html=True)
+        if execution_logs:
+            log_lines_html = []
+            for line in execution_logs:
+                safe_line = line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                if "[语料消歧" in safe_line:
+                    safe_line = re.sub(
+                        r'(\[语料消歧\s*#[0-9]+\])',
+                        r'<span class="log-tag-disambiguate">\1</span>',
+                        safe_line
+                    )
+                    safe_line = re.sub(
+                        r'(大模型消歧依据:\s*.*)',
+                        r'<span class="log-tag-reasoning">\1</span>',
+                        safe_line
+                    )
+                elif "[情报采集]" in safe_line:
+                    safe_line = safe_line.replace("[情报采集]", '<span class="log-tag-info">[情报采集]</span>')
+                elif "[行情事实对照]" in safe_line or "[客观事实对照]" in safe_line:
+                    safe_line = safe_line.replace("[行情事实对照]", '<span class="log-tag-fact">[行情事实对照]</span>')
+                    safe_line = safe_line.replace("[客观事实对照]", '<span class="log-tag-fact">[客观事实对照]</span>')
+                elif "[多维反思决策]" in safe_line or "[反思自愈决策]" in safe_line:
+                    safe_line = safe_line.replace("[多维反思决策]", '<span class="log-tag-decision">[多维反思决策]</span>')
+                    safe_line = safe_line.replace("[反思自愈决策]", '<span class="log-tag-decision">[反思自愈决策]</span>')
+                elif "[情绪聚合]" in safe_line:
+                    safe_line = safe_line.replace("[情绪聚合]", '<span class="log-tag-info">[情绪聚合]</span>')
+
+                log_lines_html.append(f'<div class="log-terminal-line">{safe_line}</div>')
+
+            terminal_html = f"""
+            <div class="log-terminal">
+                {''.join(log_lines_html)}
+            </div>
+            """
+            st.markdown(textwrap.dedent(terminal_html).strip(), unsafe_allow_html=True)
+
+            with st.expander("📄 复制纯文本审计日志", expanded=False):
+                st.text_area("全量日志明细", value="\n".join(execution_logs), height=200, label_visibility="collapsed")
+        else:
+            st.info("当前会话暂无执行日志记录。")

@@ -46,3 +46,9 @@ def test_agent_state_defaults_and_lifecycle():
     )
     assert state.market_data.stock_name == "长电科技"
     assert state.market_data.change_percent == 1.67
+    assert isinstance(state.execution_logs, list)
+    assert len(state.execution_logs) == 0
+
+    state.execution_logs.append("[语料消歧 #01] 语料: '主升浪起飞' | 大模型消歧依据: 看多情绪明确")
+    assert len(state.execution_logs) == 1
+    assert "大模型消歧依据" in state.execution_logs[0]

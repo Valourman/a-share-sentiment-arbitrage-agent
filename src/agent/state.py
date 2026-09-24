@@ -40,3 +40,4 @@ class AgentState(BaseModel):
     average_sentiment: float = 0.0
     reflection: Optional[ReflectionDecision] = None
     iteration_count: int = 0
+    execution_logs: List[str] = Field(default_factory=list, description="Agent 全流程可审计执行日志与消歧链路")

@@ -1,4 +1,5 @@
 from typing import Any, Callable, Dict, Optional
+from datetime import datetime
 from rich.console import Console
 
 from src.core.agent import BaseAgent
@@ -44,6 +45,7 @@ class SentimentArbitrageAgent(ReflectionAgent):
         """步骤一：多源情报并行采集与散户语义深度消歧"""
         max_posts = kwargs.get("max_posts", 30)
         use_llm = kwargs.get("use_llm", True)
+        engine_mode: Optional[str] = kwargs.get("engine_mode")
         progress_callback: Optional[Callable[[float, str], None]] = kwargs.get("progress_callback")
 
         console.print(f"[bold cyan]>>> 启动 Agent 多源立体研判任务: 标的代码 [{stock_code}][/bold cyan]")
@@ -60,26 +62,51 @@ class SentimentArbitrageAgent(ReflectionAgent):
 
         state.news_list = news
         state.announcements = announcements
+        now_str = datetime.now().strftime("%H:%M:%S")
+        state.execution_logs.append(
+            f"[{now_str}] [情报采集] 启动标的 [{stock_code}] 多方位全景研判，捕获股吧发帖 {len(posts)} 条，主流资讯 {len(news)} 篇，权威公告 {len(announcements)} 份"
+        )
         console.print(f"   -> 成功捕获 [green]{len(posts)}[/green] 条真实散户有效发帖 (全量最大深度)")
         console.print(f"   -> 成功汇聚 [cyan]{len(news)}[/cyan] 条主流财经资讯研报与主力动向")
         console.print(f"   -> 成功提取 [magenta]{len(announcements)}[/magenta] 份上市公司官方权威披露")
 
         # 2. 散户情绪全量消歧与反讽识别
-        mode_desc = "大模型思维链(LLM)" if use_llm else "启发式规则(Mock)"
+        if engine_mode:
+            mode_desc = f"引擎分发模式({engine_mode.upper()})"
+        else:
+            mode_desc = "大模型思维链(LLM)" if use_llm else "启发式规则(Mock)"
         if progress_callback:
             progress_callback(0.45, f"Step 2/4: 执行全量散户语料反讽消歧 (样本量: {len(posts)})...")
         console.print(f"[yellow]Step 2/4: 执行全量散户语料深度消歧 (模式: {mode_desc}, 样本量: {len(posts)})...[/yellow]")
         total_score = 0.0
-        for p in posts:
-            if use_llm:
+        for idx, p in enumerate(posts):
+            if engine_mode:
+                res = self.analyzer.analyze(p, engine_mode=engine_mode)
+            elif use_llm:
                 res = self.analyzer.analyze_with_llm(p)
             else:
                 res = self.analyzer.analyze_mock(p)
             state.sentiment_list.append(res)
             total_score += res.sentiment_score
 
+            # 结构化记录单条语料消歧日志
+            t_str = datetime.now().strftime("%H:%M:%S")
+            raw_stance = getattr(res.stance, "value", str(res.stance))
+            slang_str = f"#{', #'.join(res.slang_detected)}" if res.slang_detected else "无特殊黑话"
+            sarcasm_str = "【识别到反讽语义翻转】" if res.is_sarcasm else "无反讽"
+            post_brief = (p.title[:45] + "...") if len(p.title) > 48 else p.title
+            state.execution_logs.append(
+                f"[{t_str}] [语料消歧 #{idx+1:02d}] 语料: “{post_brief}” | "
+                f"立场: {raw_stance} | 情绪分值: {res.sentiment_score:+.2f} | "
+                f"黑话: {slang_str} | 反讽: {sarcasm_str} | "
+                f"大模型消歧依据: {res.reasoning}"
+            )
+
         if state.sentiment_list:
             state.average_sentiment = round(total_score / len(state.sentiment_list), 2)
+        state.execution_logs.append(
+            f"[{datetime.now().strftime('%H:%M:%S')}] [情绪聚合] 完成 {len(state.sentiment_list)} 条散户语料消歧，全样本情绪指数定格为: {state.average_sentiment:+.2f} (区间: -1.0 极度看空 到 +1.0 极度看多)"
+        )
         console.print(f"   -> 散户全样本综合情绪指数: [bold magenta]{state.average_sentiment}[/bold magenta] (区间: -1.0 极度看空 到 +1.0 极度看多)")
 
         return state
@@ -97,6 +124,10 @@ class SentimentArbitrageAgent(ReflectionAgent):
         state.market_data = market_snap
         state.stock_name = market_snap.stock_name
         console.print(f"   -> 标的: [bold]{market_snap.stock_name}[/bold], 现价: {market_snap.current_price}, 涨跌: {market_snap.change_percent}%, 成交额: {market_snap.turnover_amount_yi}亿")
+        state.execution_logs.append(
+            f"[{datetime.now().strftime('%H:%M:%S')}] [行情事实对照] 提取标的 [{market_snap.stock_name}] 盘面事实基准: "
+            f"现价 {market_snap.current_price:.2f} 元 | 日内变动 {market_snap.change_percent:+.2f}% | 成交量能 {market_snap.turnover_amount_yi:.2f} 亿元"
+        )
 
         sentiment = state.average_sentiment
         chg_pct = market_snap.change_percent if market_snap else 0.0
@@ -168,6 +199,14 @@ class SentimentArbitrageAgent(ReflectionAgent):
         console.print("[yellow]Step 4/4: 触发多源立体反思机制 (Reflection Loop)...[/yellow]")
         state = initial_result
         state.reflection = self._reflect_on_divergence(state)
+        if state.reflection:
+            ref = state.reflection
+            div_val = getattr(ref.divergence_type, "value", str(ref.divergence_type))
+            risk_val = getattr(ref.risk_level, "value", str(ref.risk_level))
+            state.execution_logs.append(
+                f"[{datetime.now().strftime('%H:%M:%S')}] [多维反思决策] 背离研判: {div_val} (风险等级: {risk_val}) | "
+                f"风控策略建议: {ref.action_suggestion}"
+            )
         return state
 
     def run(self, stock_code: str, max_posts: int = 30, use_llm: bool = True, **kwargs: Any) -> AgentState:
