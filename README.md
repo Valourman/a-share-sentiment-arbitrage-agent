@@ -1,5 +1,13 @@
 # 面向 A 股市场的多源舆情反讽研判与盘面背离预警 Agent
 
+<p align="left">
+  <a href="https://valourman.github.io/a-share-sentiment-arbitrage-agent/"><img src="https://img.shields.io/badge/在线演示-GitHub%20Pages-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Live Demo" /></a>
+  <a href="https://share.streamlit.io/deploy?repository=Valourman/a-share-sentiment-arbitrage-agent&branch=main&mainModule=app.py"><img src="https://img.shields.io/badge/云端一键运行-Streamlit%20Cloud-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Open in Streamlit" /></a>
+  <a href="https://github.com/Valourman/a-share-sentiment-arbitrage-agent"><img src="https://img.shields.io/badge/开源协议-MIT-green?style=for-the-badge" alt="License" /></a>
+</p>
+
+> **在线演示直达**：点击上方 **「在线演示 (GitHub Pages)」** 即可在浏览器中免配置体验可视化决策大盘；本地亦可通过 `python demo.py --mock` 一键查看终端彩色工作流看板。
+
 本项目是一个具备真实工具调用 (Tool Use)、强类型契约校验 (Pydantic V2)、语义自愈解析 (Self-Correction Loop)、多引擎情绪消歧 (TypeSafe Jev / LLM / 规则 Mock 可插拔) 与盘面交叉背离反思 (Reflection Engine) 的金融量化智能体。
 
 ## 业务痛点与竞品技术对比 (同花顺/东财 vs 本方案)
