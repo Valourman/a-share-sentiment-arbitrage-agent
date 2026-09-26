@@ -121,29 +121,23 @@
   <script type="text/babel">
     const { useState, useEffect } = React;
 
-    // 1. Magic UI: Border Beam (环绕边框流光动效)
+    // 1. Magic UI: Border Beam (仅在边框处发光的流光，内部完全镂空透明)
     function BorderBeam({
-      size = 260,
-      duration = 8,
-      delay = 0,
-      colorFrom = "#4285F4",
-      colorTo = "#9B72CF",
+      colorFrom = "#EF4444",
+      colorTo = "#F59E0B",
       className = ""
     }) {
       return (
-        <div className={`pointer-events-none absolute inset-0 rounded-[inherit] overflow-hidden ${className}`}>
-          <div
-            className="animate-border-beam absolute aspect-square"
-            style={{
-              width: `${size}px`,
-              offsetPath: "rect(0 auto auto 0 round inherit)",
-              WebkitOffsetPath: "rect(0 auto auto 0 round inherit)",
-              animationDelay: `-${delay}s`,
-              "--duration": `${duration}s`,
-              background: `linear-gradient(to left, ${colorFrom}, ${colorTo}, transparent)`,
-            }}
-          />
-        </div>
+        <div
+          className={`pointer-events-none absolute inset-0 rounded-[inherit] ${className}`}
+          style={{
+            padding: "1.5px",
+            background: `linear-gradient(135deg, ${colorFrom}, ${colorTo}, transparent 75%)`,
+            WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
+            WebkitMaskComposite: "xor",
+            maskComposite: "exclude",
+          }}
+        />
       );
     }
 
@@ -776,38 +770,38 @@
                             : isDark ? "bg-gemini-surfaceDark border-emerald-500/30" : "bg-emerald-50/60 border-emerald-200"
                         }`}>
                           <BorderBeam
-                            size={320}
-                            duration={activeSession.reflection.is_divergent ? 6 : 9}
                             colorFrom={activeSession.reflection.is_divergent ? "#EF4444" : "#4285F4"}
                             colorTo={activeSession.reflection.is_divergent ? "#F59E0B" : "#9B72CF"}
                           />
-                          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                            <div className="flex items-center gap-2">
-                              <span className="relative flex h-3 w-3">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                              </span>
-                              <span className="font-semibold text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5">
-                                <i data-lucide="shield-alert" className="w-4 h-4"></i>
-                                {activeSession.reflection.divergence_type}
+                          <div className="relative z-10">
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                              <div className="flex items-center gap-2">
+                                <span className="relative flex h-3 w-3">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                                </span>
+                                <span className="font-semibold text-sm text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                                  <i data-lucide="shield-alert" className="w-4 h-4"></i>
+                                  {activeSession.reflection.divergence_type}
+                                </span>
+                              </div>
+
+                              <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300">
+                                风险等级: {activeSession.reflection.risk_level}
                               </span>
                             </div>
 
-                            <span className="text-xs px-2.5 py-0.5 rounded-full font-medium bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300">
-                              风险等级: {activeSession.reflection.risk_level}
-                            </span>
-                          </div>
+                            <div className="text-xs sm:text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed mb-4">
+                              <strong className="text-neutral-900 dark:text-white font-medium">研判推导逻辑：</strong>
+                              {activeSession.reflection.reflection_narrative}
+                            </div>
 
-                          <div className="text-xs sm:text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed mb-4">
-                            <strong className="text-neutral-900 dark:text-white font-medium">研判推导逻辑：</strong>
-                            {activeSession.reflection.reflection_narrative}
-                          </div>
-
-                          <div className="p-3 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 flex items-start gap-2.5 text-xs leading-relaxed">
-                            <i data-lucide="info" className="w-4 h-4 text-blue-500 shrink-0 mt-0.5"></i>
-                            <div>
-                              <span className="font-medium text-neutral-900 dark:text-neutral-100">交易决策风控参考：</span>
-                              <span className="text-neutral-600 dark:text-neutral-300">{activeSession.reflection.action_suggestion}</span>
+                            <div className="p-3 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 flex items-start gap-2.5 text-xs leading-relaxed">
+                              <i data-lucide="info" className="w-4 h-4 text-blue-500 shrink-0 mt-0.5"></i>
+                              <div>
+                                <span className="font-medium text-neutral-900 dark:text-neutral-100">交易决策风控参考：</span>
+                                <span className="text-neutral-600 dark:text-neutral-300">{activeSession.reflection.action_suggestion}</span>
+                              </div>
                             </div>
                           </div>
                         </div>
