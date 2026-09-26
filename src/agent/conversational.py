@@ -152,6 +152,20 @@ class ConversationalArbitrageAgent:
         stock_code = state.stock_code
         market = state.market_data
         ref = state.reflection
+        if ref is None or ref.divergence_type == DivergenceType.INSUFFICIENT_DATA:
+            # Do not pass zero-filled quotes to the LLM or turn absent evidence
+            # into a buy/sell recommendation in the offline fallback.
+            market_note = (
+                f"已取得的行情成交额为 {market.turnover_amount_yi:.2f} 亿元，"
+                "但舆情样本不足，无法研判背离。"
+                if market is not None and market.is_trading and market.current_price > 0
+                else "行情与成交额暂无有效数据。"
+            )
+            explanation = ref.reflection_narrative if ref else "研判尚未生成。"
+            return (
+                f"⚠️ **{stock_name}：数据不足，暂不提供买卖判断。**\n\n"
+                f"{explanation}\n\n{market_note}请核对数据来源后再试。"
+            )
         div_type_val = ref.divergence_type.value if hasattr(ref.divergence_type, 'value') else str(ref.divergence_type)
 
         sarcasm_posts = [p for p in state.sentiment_list if p.is_sarcasm]

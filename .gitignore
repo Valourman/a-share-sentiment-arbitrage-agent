@@ -51,3 +51,11 @@ evals/results/
 logs/
 *.log
 .superpowers/
+.workbuddy/
+
+# Local market data (do not commit large, changing SQLite files)
+/data/*.sqlite
+/data/*.sqlite3
+/data/*.sqlite3-*
+/data/*.db
+/data/*.db-*

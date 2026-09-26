@@ -2,16 +2,23 @@ from typing import Any, Callable, Dict, Optional
 from datetime import datetime
 from rich.console import Console
 
-from src.core.agent import BaseAgent
 from src.core.llm import HelloAgentsLLM
 from src.core.message import Message
 from src.agent.base_reflection import ReflectionAgent
-from src.agent.state import AgentState, ReflectionDecision, DivergenceType, RiskLevel
+from src.agent.decision import (
+    DivergenceAssessment,
+    assess_divergence,
+    build_reflection_decision,
+    has_valid_market_snapshot,
+)
+from src.agent.state import AgentState, ReflectionDecision
 from src.core.tracer import AgentTracer
 from src.tools.scraper import StockForumScraper
 from src.tools.market import MarketDataTool
 from src.tools.analyzer import FinancialSentimentAnalyzer
 from src.tools.registry import ToolRegistry, global_tool_registry
+from src.workflow.pipeline import FinancialWorkflowPipeline
+from src.workflow.nodes import FundamentalCatalystNode, MultiAgentDebateNode
 
 console = Console()
 
@@ -19,11 +26,12 @@ console = Console()
 class SentimentArbitrageAgent(ReflectionAgent):
     """
     面向 A 股市场的多源舆情反讽研判与盘面背离预警 Agent
-    派生自 Hello Agents 标准 ReflectionAgent 范式
+    融合 Hello Agents 标准架构与 GitHub 热门金融多智能体 (FinRobot / TradingAgents) 范式：
     具备：
-    1. 多源感知采集 (execute_initial)
-    2. 客观盘面基准对照与批判审查 (evaluate_critique)
-    3. 背离反思与决策自愈闭环 (reflect_and_refine)
+    1. 并发感知流与散户反讽穿透消歧
+    2. 基本面催化剂与风险归因提炼
+    3. 多智能体多空对抗辩论 (Bull vs Bear Debate Protocol)
+    4. 秒级客观事实盘面交叉对照与背离终审决策
     """
     def __init__(
         self,
@@ -38,8 +46,14 @@ class SentimentArbitrageAgent(ReflectionAgent):
         # 获取或注册具象工具
         self.scraper: StockForumScraper = self.tools.get("stock_scraper") or StockForumScraper()
         self.market_tool: MarketDataTool = self.tools.get("market_data") or MarketDataTool()
-        self.analyzer: FinancialSentimentAnalyzer = (
-            self.tools.get("sentiment_analyzer") or FinancialSentimentAnalyzer(llm=self.llm)
+
+        configured_analyzer = tools.get("sentiment_analyzer") if tools is not None else None
+        self.analyzer: FinancialSentimentAnalyzer = configured_analyzer or FinancialSentimentAnalyzer(llm=self.llm)
+
+        # 现代化金融工作流流水线编排器
+        self.pipeline: FinancialWorkflowPipeline = FinancialWorkflowPipeline(
+            llm=self.llm,
+            tools=self.tools,
         )
         # 执行链路追踪器 (每次 run 自动重置，可通过 get_summary() 获取汇总指标)
         self.tracer: AgentTracer = AgentTracer()
@@ -67,6 +81,14 @@ class SentimentArbitrageAgent(ReflectionAgent):
 
         state.news_list = news
         state.announcements = announcements
+        state.sentiment_sample_count = len(posts)
+
+        # 提取基本面催化与风险项
+        cat_node = FundamentalCatalystNode(llm=self.llm)
+        catalysts, risks = cat_node.run(news, announcements, stock_name=state.stock_name)
+        state.catalysts = catalysts
+        state.risks = risks
+
         now_str = datetime.now().strftime("%H:%M:%S")
         state.execution_logs.append(
             f"[{now_str}] [情报采集] 启动标的 [{stock_code}] 多方位全景研判，捕获股吧发帖 {len(posts)} 条，主流资讯 {len(news)} 篇，权威公告 {len(announcements)} 份"
@@ -129,71 +151,33 @@ class SentimentArbitrageAgent(ReflectionAgent):
         console.print("[yellow]Step 3/4: 提取秒级客观盘面事实行情 (基准数据)...[/yellow]")
         with self.tracer.span("market_snapshot", "tool", inputs={"stock_code": stock_code}) as span:
             market_snap = self.market_tool.fetch_snapshot(stock_code)
-            span.outputs = {"stock_name": market_snap.stock_name, "change_percent": market_snap.change_percent}
+            span.outputs = {
+                "stock_name": market_snap.stock_name,
+                "change_percent": market_snap.change_percent,
+                "valid": has_valid_market_snapshot(market_snap),
+            }
         state.market_data = market_snap
         state.stock_name = market_snap.stock_name
-        console.print(f"   -> 标的: [bold]{market_snap.stock_name}[/bold], 现价: {market_snap.current_price}, 涨跌: {market_snap.change_percent}%, 成交额: {market_snap.turnover_amount_yi}亿")
-        state.execution_logs.append(
-            f"[{datetime.now().strftime('%H:%M:%S')}] [行情事实对照] 提取标的 [{market_snap.stock_name}] 盘面事实基准: "
-            f"现价 {market_snap.current_price:.2f} 元 | 日内变动 {market_snap.change_percent:+.2f}% | 成交量能 {market_snap.turnover_amount_yi:.2f} 亿元"
-        )
-
-        sentiment = state.average_sentiment
-        chg_pct = market_snap.change_percent if market_snap else 0.0
-
-        # 判断客观盘面与主观情绪是否存在背离冲突
-        is_divergent = False
-        divergence_label = DivergenceType.CONSISTENT
-        risk_level = RiskLevel.LOW
-
-        if sentiment >= 0.20 and chg_pct < -0.5:
-            is_divergent = True
-            divergence_label = DivergenceType.BULL_TRAP
-            risk_level = RiskLevel.HIGH
-        elif sentiment <= -0.20 and chg_pct >= 0.0:
-            is_divergent = True
-            divergence_label = DivergenceType.PANIC_BOTTOM
-            risk_level = RiskLevel.MEDIUM
-
-        return {
-            "is_divergent": is_divergent,
-            "divergence_label": divergence_label,
-            "risk_level": risk_level,
-            "sentiment": sentiment,
-            "chg_pct": chg_pct,
-        }
-
-    def _reflect_on_divergence(self, state: AgentState) -> ReflectionDecision:
-        """核心反思逻辑：对照主观情绪与客观盘面背离"""
-        sentiment = state.average_sentiment
-        chg_pct = state.market_data.change_percent if state.market_data else 0.0
-        news_count = len(state.news_list)
-        news_hint = f"（同步监控到主流财经媒体近{news_count}篇深度资讯与机构动向）" if news_count > 0 else ""
-
-        if sentiment >= 0.20 and chg_pct < -0.5:
-            return ReflectionDecision(
-                is_divergent=True,
-                divergence_type=DivergenceType.BULL_TRAP,
-                risk_level=RiskLevel.HIGH,
-                reflection_narrative=f"散户全样本情绪指数呈现偏乐观态度(+{sentiment})，频繁出现追涨抬轿言论；但盘面客观实际处于下挫形态({chg_pct}%)。结合多源新闻显示主力资金可能处于分歧出货阶段{news_hint}。存在明显多头诱多或散户不理性抄底被套特征。",
-                action_suggestion="警惕盘面诱多与阴跌风险，不宜盲目跟风抄底，建议轻仓观望，等待放量企稳。",
-            )
-        elif sentiment <= -0.20 and chg_pct >= 0.0:
-            return ReflectionDecision(
-                is_divergent=True,
-                divergence_type=DivergenceType.PANIC_BOTTOM,
-                risk_level=RiskLevel.MEDIUM,
-                reflection_narrative=f"散户社区大面积充斥关灯吃面、保卫战等悲观绝望言论({sentiment})，但盘面实际抗跌翻红({chg_pct}%)，量能维持活跃。结合专业资讯研报，筹码正在向主力或机构资金逆向沉淀{news_hint}。",
-                action_suggestion="左侧散户恐慌盘逐步出清，可密切关注量价企稳与右侧反弹突破信号，分批布局。",
+        if has_valid_market_snapshot(market_snap):
+            console.print(f"   -> 标的: [bold]{market_snap.stock_name}[/bold], 现价: {market_snap.current_price}, 涨跌: {market_snap.change_percent}%, 成交额: {market_snap.turnover_amount_yi}亿")
+            state.execution_logs.append(
+                f"[{datetime.now().strftime('%H:%M:%S')}] [行情事实对照] 提取标的 [{market_snap.stock_name}] 盘面事实基准: "
+                f"现价 {market_snap.current_price:.2f} 元 | 日内变动 {market_snap.change_percent:+.2f}% | 成交量能 {market_snap.turnover_amount_yi:.2f} 亿元"
             )
         else:
-            return ReflectionDecision(
-                is_divergent=False,
-                divergence_type=DivergenceType.CONSISTENT,
-                risk_level=RiskLevel.LOW,
-                reflection_narrative=f"散户全量情绪指数({sentiment})与盘面实际涨跌({chg_pct}%)趋势基本一致，市场各方博弈处于均衡区间{news_hint}。",
-                action_suggestion="情绪与价格走势共振，按常规量价指标与上市公司基本面策略执行。",
+            console.print("   -> 行情数据不可用：不把零值快照当作有效价格")
+            state.execution_logs.append(
+                f"[{datetime.now().strftime('%H:%M:%S')}] [行情事实对照] 未取得有效行情快照，暂停背离判定"
             )
+
+        return assess_divergence(state).as_dict()
+
+    def _reflect_on_divergence(
+        self, state: AgentState, critique: Optional[Dict[str, Any]] = None
+    ) -> ReflectionDecision:
+        """Compose a decision from the same assessment used by the critique."""
+        assessment = DivergenceAssessment.from_dict(critique) if critique is not None else assess_divergence(state)
+        return build_reflection_decision(state, assessment)
 
     def reflect_and_refine(
         self,
@@ -208,8 +192,14 @@ class SentimentArbitrageAgent(ReflectionAgent):
         console.print("[yellow]Step 4/4: 触发多源立体反思机制 (Reflection Loop)...[/yellow]")
         state = initial_result
         with self.tracer.span("divergence_reflection", "reflect", inputs={"average_sentiment": state.average_sentiment}) as span:
-            state.reflection = self._reflect_on_divergence(state)
+            state.reflection = self._reflect_on_divergence(state, critique)
             span.outputs = {"divergence_type": getattr(state.reflection.divergence_type, "value", str(state.reflection.divergence_type))}
+
+        # 构建多智能体博弈辩论结果
+        if state.debate_result is None:
+            debate_node = MultiAgentDebateNode(llm=self.llm)
+            state.debate_result = debate_node.run(state, state.catalysts, state.risks)
+
         if state.reflection:
             ref = state.reflection
             div_val = getattr(ref.divergence_type, "value", str(ref.divergence_type))
@@ -223,15 +213,32 @@ class SentimentArbitrageAgent(ReflectionAgent):
     def run(self, stock_code: str, max_posts: int = 30, use_llm: bool = True, **kwargs: Any) -> AgentState:
         """
         启动多源交叉金融研判 Agent 任务
-        完全保持原有的调用签名与返回数据类型兼容性，支持可选的 progress_callback
+        融合 Hello Agents 经典反思范式与现代化多智能体博弈辩论：
+        - 默认模式：执行 execute_initial -> evaluate_critique -> reflect_and_refine 4阶段反思闭环，
+                    并自动附带基本面催化剂挖掘与多空多智能体辩论 (Bull vs Bear Debate)；
+        - workflow_mode=True: 切换为纯并发流水线编排器 (FinancialWorkflowPipeline)。
         """
+        workflow_mode: bool = kwargs.get("workflow_mode", False)
         progress_callback: Optional[Callable[[float, str], None]] = kwargs.get("progress_callback")
+
         # 每次研判重置链路追踪器，避免跨任务累计
         self.tracer = AgentTracer()
         self.add_message(Message.user(f"研判标的股票代码: {stock_code}"))
-        state = self.execute_initial(stock_code, max_posts=max_posts, use_llm=use_llm, **kwargs)
-        critique = self.evaluate_critique(state, **kwargs)
-        final_state = self.reflect_and_refine(state, critique, **kwargs)
+
+        if workflow_mode:
+            final_state = self.pipeline.run(
+                stock_code=stock_code,
+                max_posts=max_posts,
+                use_llm=use_llm,
+                engine_mode=kwargs.get("engine_mode"),
+                progress_callback=progress_callback,
+                tracer=self.tracer,
+            )
+        else:
+            state = self.execute_initial(stock_code, max_posts=max_posts, use_llm=use_llm, **kwargs)
+            critique = self.evaluate_critique(state, **kwargs)
+            final_state = self.reflect_and_refine(state, critique, **kwargs)
+
         self.add_message(Message.assistant(f"完成标的 [{stock_code}] 研判报告"))
 
         # 链路追踪汇总写入审计日志

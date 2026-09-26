@@ -3,7 +3,8 @@ import re
 import textwrap
 from src.agent.engine import SentimentArbitrageAgent
 from src.agent.conversational import ConversationalArbitrageAgent
-from src.agent.state import AgentState
+from src.agent.state import AgentState, DivergenceType
+from src.agent.decision import has_valid_market_snapshot
 from src.core.config import AgentConfig, global_config
 from src.core.llm import HelloAgentsLLM
 
@@ -293,6 +294,35 @@ footer { visibility: hidden !important; }
     margin-right: 0.3rem;
 }
 
+/* 多智能体多空辩论卡片 (对标 TradingAgents / FinRobot) */
+.debate-box {
+    background: #FFFFFF;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 1.25rem;
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.02);
+}
+.debate-col-bull {
+    background: linear-gradient(180deg, rgba(254, 242, 242, 0.6) 0%, #FFFFFF 100%);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 1rem;
+    padding: 1rem;
+}
+.debate-col-bear {
+    background: linear-gradient(180deg, rgba(240, 253, 244, 0.6) 0%, #FFFFFF 100%);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 1rem;
+    padding: 1rem;
+}
+.catalyst-card {
+    background: #FFFFFF;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 1rem;
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.6rem;
+}
+
 /* 结构化消歧日志终端容器 (Log Terminal) */
 .log-terminal {
     background-color: #0F172A;
@@ -475,6 +505,7 @@ if "settings" not in st.session_state:
         "temperature": float(global_config.temperature if global_config.temperature is not None else 0.1),
         "max_posts": 30,
         "use_llm": True,
+        "workflow_mode": True,
         "timeout_seconds": float(global_config.timeout_seconds if global_config.timeout_seconds is not None else 30.0),
     }
 
@@ -508,6 +539,7 @@ def run_configured_agent(stock_code: str):
             stock_code=stock_code,
             max_posts=int(settings["max_posts"]),
             use_llm=bool(settings["use_llm"]),
+            workflow_mode=bool(settings.get("workflow_mode", True)),
             progress_callback=on_progress,
         )
         st.session_state.active_state = state
@@ -612,6 +644,11 @@ with st.sidebar:
             value=bool(cur_s["use_llm"]),
             help="关闭后仅做规则匹配，开启后调用大模型进行反讽消歧与多步反思",
         )
+        workflow_mode = st.toggle(
+            "多智能体工作流流水线",
+            value=bool(cur_s.get("workflow_mode", True)),
+            help="启用对标 TradingAgents/FinRobot 的并发感知、基本面催化挖掘与多空多智能体辩论 (Bull vs Bear Debate)",
+        )
 
         c1, c2 = st.columns(2)
         with c1:
@@ -623,6 +660,7 @@ with st.sidebar:
                     "temperature": temperature,
                     "max_posts": max_posts,
                     "use_llm": use_llm,
+                    "workflow_mode": workflow_mode,
                 })
                 st.success("配置已更新生效")
                 st.rerun()
@@ -630,6 +668,14 @@ with st.sidebar:
             if st.button("恢复默认", key="btn_reset_settings", use_container_width=True):
                 st.session_state.settings = {
                     "api_key": global_config.openai_api_key or "",
+                    "base_url": global_config.openai_base_url or "",
+                    "model_name": global_config.default_model or "gpt-4o-mini",
+                    "temperature": float(global_config.temperature if global_config.temperature is not None else 0.1),
+                    "max_posts": 30,
+                    "use_llm": True,
+                    "workflow_mode": True,
+                    "timeout_seconds": float(global_config.timeout_seconds if global_config.timeout_seconds is not None else 30.0),
+                }
                     "base_url": global_config.openai_base_url or "",
                     "model_name": global_config.default_model or "gpt-4o-mini",
                     "temperature": float(global_config.temperature if global_config.temperature is not None else 0.1),
@@ -811,13 +857,17 @@ else:
     """
     st.markdown(textwrap.dedent(user_bubble_html).strip(), unsafe_allow_html=True)
 
+    market_available = has_valid_market_snapshot(state.market_data)
     price = state.market_data.current_price if state.market_data else 0.0
     chg = state.market_data.change_percent if state.market_data else 0.0
     turnover = state.market_data.turnover_amount_yi if state.market_data else 0.0
     sentiment = state.average_sentiment
     is_up = chg >= 0
-    chg_color = "#DC2626" if is_up else "#059669"
+    chg_color = "#6B7280" if not market_available else "#DC2626" if is_up else "#059669"
     sentiment_color = "#DC2626" if sentiment >= 0 else "#059669"
+    price_display = f"{price:.2f} 元" if market_available else "暂无有效行情"
+    change_display = f"{'▲ +' if is_up else '▼ '}{chg:.2f}%" if market_available else "—"
+    turnover_display = f"{turnover:.2f} 亿" if market_available else "暂无有效数据"
 
     market_grid_html = f"""
     <div class="gemini-ai-container">
@@ -836,18 +886,18 @@ else:
                 </div>
                 <div class="market-chip-card">
                     <div class="chip-label">实时成交价</div>
-                    <div class="chip-value" style="color: {chg_color};">{price:.2f} 元</div>
-                    <div class="chip-sub" style="color: {chg_color};">{'▲ +' if is_up else '▼ '}{chg:.2f}%</div>
+                    <div class="chip-value" style="color: {chg_color};">{price_display}</div>
+                    <div class="chip-sub" style="color: {chg_color};">{change_display}</div>
                 </div>
                 <div class="market-chip-card">
                     <div class="chip-label">今日成交量能</div>
-                    <div class="chip-value" style="color: #1F2937;">{turnover:.2f} 亿</div>
-                    <div style="font-size: 0.72rem; color: #6B7280;">主力资金博弈</div>
+                    <div class="chip-value" style="color: #1F2937;">{turnover_display}</div>
+                    <div style="font-size: 0.72rem; color: #6B7280;">行情接口成交额</div>
                 </div>
                 <div class="market-chip-card">
                     <div class="chip-label">全样本散户情绪分</div>
                     <div class="chip-value" style="color: {sentiment_color};">{'+' if sentiment > 0 else ''}{sentiment:.2f}</div>
-                    <div style="font-size: 0.72rem; color: #6B7280;">全量样本: {len(state.sentiment_list)} 条</div>
+                    <div style="font-size: 0.72rem; color: #6B7280;">有效样本: {len(state.sentiment_list)} 条</div>
                 </div>
             </div>
         </div>
@@ -861,10 +911,13 @@ else:
         div_label = getattr(ref.divergence_type, "value", str(ref.divergence_type))
         risk_label = getattr(ref.risk_level, "value", str(ref.risk_level))
         is_div = ref.is_divergent
+        is_unknown = ref.divergence_type == DivergenceType.INSUFFICIENT_DATA
         radar_class = "radar-banner divergent" if is_div else "radar-banner"
-        badge_bg = "#FEE2E2" if is_div else "#D1FAE5"
-        badge_text = "#B91C1C" if is_div else "#065F46"
-        status_dot = '<span class="status-indicator-dot alert"></span>' if is_div else '<span class="status-indicator-dot normal"></span>'
+        badge_bg = "#E5E7EB" if is_unknown else "#FEE2E2" if is_div else "#D1FAE5"
+        badge_text = "#4B5563" if is_unknown else "#B91C1C" if is_div else "#065F46"
+        status_dot = ('<span class="status-indicator-dot" style="background: #9CA3AF;"></span>'
+                      if is_unknown else '<span class="status-indicator-dot alert"></span>'
+                      if is_div else '<span class="status-indicator-dot normal"></span>')
 
         radar_card_html = f"""
         <div class="{radar_class}">
@@ -887,13 +940,21 @@ else:
         """
         st.markdown(textwrap.dedent(radar_card_html).strip(), unsafe_allow_html=True)
 
+    market_summary = (
+        f"现价 **{price:.2f} 元**，日内涨跌 **{chg:+.2f}%**，成交额 **{turnover:.2f} 亿元**。"
+        if market_available else "未取得有效行情，不能据零值快照推断价格走势。"
+    )
+    sentiment_summary = (
+        f"有效散户情绪指数 **{sentiment:+.2f}**，并与有效行情对照。"
+        if state.sentiment_list else "没有有效股吧样本，不能计算有代表性的散户情绪。"
+    )
     # Gemini 思维链展开抽屉
     with st.expander("Gemini 大模型多源思维链语义推理过程 (4 个步骤)"):
         chain_md = f"""
-        - **第一步 [客观行情事实]**：提取实时现价 **{price:.2f} 元**，日内变动 **{chg:+.2f}%**，成交量能 **{turnover:.2f} 亿元**。
-        - **第二步 [多方位信息聚合]**：无限制抓取东方财富股吧全部 **{len(state.sentiment_list)} 条有效原帖**，并同步比对新浪主流新闻与官方公告。
-        - **第三步 [深度反讽消歧与博弈反思]**：大模型消除『赢麻了』『抬轿子』等网络倒装反语，综合情绪值定格在 **{sentiment:+.2f}**，对比盘面判定背离类型。
-        - **第四步 [Pydantic V2 契约决策自愈]**：通过严格模式结构校验，生成交易防御建议。
+        - **第一步 [行情数据校验]**：{market_summary}
+        - **第二步 [信息采集]**：获取股吧有效发帖 **{len(state.sentiment_list)} 条**、新闻 **{len(state.news_list)} 篇**、公告 **{len(state.announcements)} 份**；新闻与公告未参与方向判定。
+        - **第三步 [语义消歧]**：{sentiment_summary}
+        - **第四步 [规则背离研判]**：按情绪与涨跌幅规则生成结构化决策；必要数据缺失则标记数据不足。
         """
         st.markdown(textwrap.dedent(chain_md).strip())
 
@@ -911,12 +972,94 @@ else:
     # 8. 多源情报与执行日志分区展示 Tabs (Gemini 沉浸式标签页)
     # ============================================================
     execution_logs = getattr(state, "execution_logs", [])
-    tab_guba, tab_news, tab_ann, tab_logs = st.tabs([
+    catalysts = getattr(state, "catalysts", [])
+    risks = getattr(state, "risks", [])
+    debate_res = getattr(state, "debate_result", None)
+
+    tab_debate, tab_catalysts, tab_guba, tab_news, tab_ann, tab_logs = st.tabs([
+        "多空博弈辩论 (Debate)",
+        f"基本面驱动与风险 ({len(catalysts) + len(risks)} 项)",
         f"股吧散户语料 ({len(state.sentiment_list)} 条样本)",
         f"主流专业资讯 ({len(state.news_list)} 篇)",
         f"上市公司官方披露 ({len(state.announcements)} 份)",
-        f"大模型消歧与全流程执行日志 ({len(execution_logs)} 条流水)"
+        f"全流程执行日志 ({len(execution_logs)} 条流水)"
     ])
+
+    with tab_debate:
+        if debate_res:
+            dr = debate_res
+            st.markdown(f"""
+            <div class="debate-box">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
+                    <div style="font-size: 0.95rem; font-weight: 700; color: #1F2937;">
+                        多智能体多空对抗博弈 (对标 TradingAgents / FinRobot Debate Protocol)
+                    </div>
+                    <div style="font-size: 0.75rem; background: #EEF2FF; color: #4338CA; padding: 0.2rem 0.65rem; border-radius: 9999px; font-weight: 600;">
+                        裁决态势: {dr.consensus_bias}
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.85rem;">
+                    <div class="debate-col-bull">
+                        <div style="font-weight: 700; color: #DC2626; font-size: 0.85rem; margin-bottom: 0.4rem;">
+                            {dr.bull_opinion.agent_name} (置信度: {dr.bull_opinion.confidence:.2f})
+                        </div>
+                        <div style="font-size: 0.8rem; color: #374151; margin-bottom: 0.5rem; font-weight: 600;">
+                            {dr.bull_opinion.core_thesis}
+                        </div>
+                        <ul style="font-size: 0.75rem; color: #4B5563; margin: 0; padding-left: 1.1rem; line-height: 1.5;">
+                            {"".join(f"<li>{arg}</li>" for arg in dr.bull_opinion.arguments)}
+                        </ul>
+                    </div>
+                    <div class="debate-col-bear">
+                        <div style="font-weight: 700; color: #059669; font-size: 0.85rem; margin-bottom: 0.4rem;">
+                            {dr.bear_opinion.agent_name} (置信度: {dr.bear_opinion.confidence:.2f})
+                        </div>
+                        <div style="font-size: 0.8rem; color: #374151; margin-bottom: 0.5rem; font-weight: 600;">
+                            {dr.bear_opinion.core_thesis}
+                        </div>
+                        <ul style="font-size: 0.75rem; color: #4B5563; margin: 0; padding-left: 1.1rem; line-height: 1.5;">
+                            {"".join(f"<li>{arg}</li>" for arg in dr.bear_opinion.arguments)}
+                        </ul>
+                    </div>
+                </div>
+                <div style="background: #F8FAFC; border-radius: 0.75rem; padding: 0.65rem 0.85rem; font-size: 0.78rem; color: #475569;">
+                    <strong>多空分歧焦点：</strong>{dr.key_divergence_point}<br>
+                    <strong>风控委员会仲裁结论：</strong>{dr.arbitration_summary}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.info("当前模式未生成多智能体对抗辩论，请在侧边栏开启'多智能体工作流流水线'以启用此功能。")
+
+    with tab_catalysts:
+        col_cat, col_risk = st.columns(2)
+        with col_cat:
+            st.markdown(f"<div style='font-size: 0.85rem; font-weight: 700; color: #DC2626; margin-bottom: 0.5rem;'>正向催化与支撑驱动 ({len(catalysts)} 项)</div>", unsafe_allow_html=True)
+            if catalysts:
+                for c in catalysts:
+                    st.markdown(f"""
+                    <div class="catalyst-card" style="border-left: 3px solid #DC2626;">
+                        <div style="font-size: 0.75rem; color: #9CA3AF; margin-bottom: 0.2rem;">[{c.source_type.upper()}] 影响等级: {c.impact_level}</div>
+                        <div style="font-size: 0.8rem; font-weight: 600; color: #1F2937; margin-bottom: 0.3rem;">{c.source_title}</div>
+                        <div style="font-size: 0.75rem; color: #4B5563; line-height: 1.4;">{c.key_insight}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.markdown("<div style='font-size: 0.78rem; color: #9CA3AF;'>暂未提取到强正向利好催化。</div>", unsafe_allow_html=True)
+
+        with col_risk:
+            st.markdown(f"<div style='font-size: 0.85rem; font-weight: 700; color: #059669; margin-bottom: 0.5rem;'>负向警示与潜在风险 ({len(risks)} 项)</div>", unsafe_allow_html=True)
+            if risks:
+                for r in risks:
+                    st.markdown(f"""
+                    <div class="catalyst-card" style="border-left: 3px solid #059669;">
+                        <div style="font-size: 0.75rem; color: #9CA3AF; margin-bottom: 0.2rem;">[{r.source_type.upper()}] 影响等级: {r.impact_level}</div>
+                        <div style="font-size: 0.8rem; font-weight: 600; color: #1F2937; margin-bottom: 0.3rem;">{r.source_title}</div>
+                        <div style="font-size: 0.75rem; color: #4B5563; line-height: 1.4;">{r.key_insight}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.markdown("<div style='font-size: 0.78rem; color: #9CA3AF;'>暂未提取到极端负向预警公告或涉诉新闻。</div>", unsafe_allow_html=True)
 
     with tab_guba:
         st.markdown("<div style='font-size: 0.8rem; color: #6B7280; margin-bottom: 0.75rem;'>自动抓取该页全部真实散户发帖，已剔除 70%+ 水军广告并消除反讽语义翻转（大模型消歧依据已归档入日志）：</div>", unsafe_allow_html=True)
