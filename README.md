@@ -220,22 +220,37 @@ TYPESAFE_MODEL=jev-latest
 DEFAULT_SENTIMENT_ENGINE=auto  # jev / llm / mock / auto
 ```
 
-### 3. 启动交互式 Web 仪表盘
+### 3. 一键终端多智能体工作流演示 (开箱即用)
 
-#### 方案 A：静态前端页面 (三套并存，免构建)
+无需启动浏览器或额外配置，直接在终端查看 5 阶段多智能体工作流协同与多空辩论过程：
+
+```bash
+# 运行默认经典标的 (长电科技 · 典型诱多背离与多空辩论案例)
+python demo.py
+
+# 运行指定股票标的
+python demo.py --code 600667
+
+# 强制使用本地规则与离线数据极速演示 (无需配置任何 API 密钥)
+python demo.py --mock
+```
+
+### 4. 启动交互式 Web 仪表盘
+
+#### 方案 A：Streamlit 沉浸式工作台 (推荐，含完整多空辩论与催化分析大盘)
+执行以下命令启动 Streamlit 交互工作台：
+
+```bash
+streamlit run app.py
+```
+在浏览器中打开提示的本地地址（默认 `http://localhost:8501`），输入 6 位 A 股股票代码（如 `600519`, `600584`, `002594`），点击 **「启动智能反思研判」** 查看多空辩论卡片与决策大屏。
+
+#### 方案 B：静态前端页面 (三套并存，免构建)
 执行 `python server.py` 启动静态服务器（默认 `http://localhost:8080`），或直接双击打开对应 HTML 文件：
 - **`frontend/index.html`**：Gemini 风交互应用 — 深浅色模式切换、折叠导航、思维链展开、Border Beam 流光、Number Ticker 平滑计数、舆情跑马灯。
 - **`frontend/landing.html`**：ALPHA-SENSE 暗黑风产品落地页 — 双脑架构拓扑与三引擎评测大盘展示。
 - **`frontend/claude-visual/`**：Claude/Anthropic 设计风页面。
 - 组件源码：`frontend/GeminiSentimentDashboard.tsx`（React 18 + TypeScript + Tailwind），可嵌入现代前端技术栈。
-
-#### 方案 B：Streamlit 仪表盘 (已升级 Gemini 美学皮肤)
-执行以下命令启动 Streamlit 前端交互工作台：
-
-```bash
-streamlit run app.py
-```
-在浏览器中打开提示的本地地址（默认 `http://localhost:8501`），输入 6 位 A 股股票代码（如 `600519`, `600584`, `002594`），点击 **「启动智能反思研判」** 查看经过 Gemini 色彩与卡片化重构的决策大屏。
 
 #### 方案 C：对话式多轮问答 (Python API)
 ```python
