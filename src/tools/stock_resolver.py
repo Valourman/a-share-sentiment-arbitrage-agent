@@ -1,7 +1,7 @@
 import re
 import urllib.parse
 import urllib.request
-from typing import Optional, Tuple, Dict, List
+from typing import Optional, Tuple, Dict
 
 
 class StockResolver:
@@ -93,43 +93,44 @@ class StockResolver:
         return None
 
     @classmethod
-    def search_name_by_code(cls, stock_code: str) -> Optional[str]:
+    def _fetch_suggest_value(cls, key: str) -> Optional[str]:
+        """统一请求新浪证券联想接口并解析 suggestvalue 字段"""
         try:
-            url = f'http://suggest3.sinajs.cn/suggest/type=11,12,13,14,15&key={stock_code}'
-            req = urllib.request.Request(url, headers={'Referer': 'https://finance.sina.com.cn', 'User-Agent': 'Mozilla/5.0'})
+            encoded_key = urllib.parse.quote(key)
+            url = f'http://suggest3.sinajs.cn/suggest/type=11,12,13,14,15&key={encoded_key}'
+            req = urllib.request.Request(
+                url,
+                headers={'Referer': 'https://finance.sina.com.cn', 'User-Agent': 'Mozilla/5.0'},
+            )
             with urllib.request.urlopen(req, timeout=2) as resp:
                 text = resp.read().decode('gbk', errors='ignore')
             if 'suggestvalue="' in text:
                 val = text.split('suggestvalue="')[1].split('"')[0]
-                if val:
-                    first_item = val.split(';')[0].split(',')
-                    if len(first_item) >= 3 and first_item[2] == stock_code:
-                        return first_item[0]
+                return val or None
         except Exception:
             pass
         return None
 
     @classmethod
-    def search_online(cls, keyword: str) -> Optional[Tuple[str, str]]:
-        try:
-            encoded_key = urllib.parse.quote(keyword)
-            url = f'http://suggest3.sinajs.cn/suggest/type=11,12,13,14,15&key={encoded_key}'
-            req = urllib.request.Request(url, headers={'Referer': 'https://finance.sina.com.cn', 'User-Agent': 'Mozilla/5.0'})
-            with urllib.request.urlopen(req, timeout=2) as resp:
-                text = resp.read().decode('gbk', errors='ignore')
+    def search_name_by_code(cls, stock_code: str) -> Optional[str]:
+        val = cls._fetch_suggest_value(stock_code)
+        if val:
+            first_item = val.split(';')[0].split(',')
+            if len(first_item) >= 3 and first_item[2] == stock_code:
+                return first_item[0]
+        return None
 
-            if 'suggestvalue="' in text:
-                val = text.split('suggestvalue="')[1].split('"')[0]
-                if val:
-                    items = val.split(';')
-                    for item in items:
-                        parts = item.split(',')
-                        if len(parts) >= 4:
-                            name = parts[0]
-                            code = parts[2]
-                            # 严格匹配：keyword 必须是股票名称的前缀或完全一致
-                            if (name.startswith(keyword) or keyword == name) and re.match(r'^(60\d{4}|68\d{4}|00\d{4}|30\d{4})$', code):
-                                return code, name
-        except Exception:
-            pass
+    @classmethod
+    def search_online(cls, keyword: str) -> Optional[Tuple[str, str]]:
+        val = cls._fetch_suggest_value(keyword)
+        if val:
+            items = val.split(';')
+            for item in items:
+                parts = item.split(',')
+                if len(parts) >= 4:
+                    name = parts[0]
+                    code = parts[2]
+                    # 严格匹配：keyword 必须是股票名称的前缀或完全一致
+                    if (name.startswith(keyword) or keyword == name) and re.match(r'^(60\d{4}|68\d{4}|00\d{4}|30\d{4})$', code):
+                        return code, name
         return None

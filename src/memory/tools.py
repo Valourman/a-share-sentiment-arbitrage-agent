@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from src.tools.base import Tool, ToolParameter
 from src.tools.registry import global_tool_registry
 from src.memory.manager import MemoryManager

@@ -3,7 +3,6 @@
 命名规范: test_<功能>_<场景>_<期望结果>
 """
 import pytest
-from unittest.mock import MagicMock, patch
 from src.tools.analyzer import FinancialSentimentAnalyzer
 from src.tools.market import MarketDataTool
 from src.tools.scraper import StockForumScraper

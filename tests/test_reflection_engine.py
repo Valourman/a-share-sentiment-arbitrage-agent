@@ -3,11 +3,11 @@
 命名规范: test_<功能>_<场景>_<期望结果>
 """
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from src.agent.engine import SentimentArbitrageAgent
 from src.agent.state import AgentState, DivergenceType, RiskLevel
 from src.core.market_schema import MarketSnapshot
-from src.core.schema import RawPost, SentimentAnalysisResult, SentimentStance
+from src.core.schema import RawPost
 
 @pytest.fixture
 def agent_instance():
@@ -76,8 +76,14 @@ def test_reflection_consistent_when_sentiment_aligns_with_price(agent_instance):
 def test_agent_run_pipeline_with_mock_tools(agent_instance):
     """测试通过 Mock 工具链执行 Agent.run 完整流水线"""
     mock_posts = [
-        RawPost(title="长电科技主升浪启动！", author="股民小李", publish_time="10:00", read_count=100, comment_count=10),
-        RawPost(title="好耶，又吃面了，太棒了主力送钱！", author="韭菜本菜", publish_time="10:05", read_count=200, comment_count=25),
+        RawPost(
+            title="长电科技主升浪启动！", author="股民小李", publish_time="10:00",
+            read_count=100, comment_count=10,
+        ),
+        RawPost(
+            title="好耶，又吃面了，太棒了主力送钱！", author="韭菜本菜", publish_time="10:05",
+            read_count=200, comment_count=25,
+        ),
     ]
     mock_snapshot = MarketSnapshot(
         stock_code="600584",
@@ -141,8 +147,14 @@ def test_agent_run_pipeline_with_progress_callback(agent_instance):
 def test_agent_records_disambiguation_and_execution_logs(agent_instance):
     """测试 Agent 在研判全过程中将散户消歧依据与反思决策链路完整记入 execution_logs"""
     mock_posts = [
-        RawPost(title="两点理由往后可以关注闽泰：国家介入是支撑利好", author="散户甲", publish_time="10:00", read_count=120, comment_count=5),
-        RawPost(title="好耶，跌停又吃面了，感谢主力送钱！", author="散户乙", publish_time="10:05", read_count=210, comment_count=18),
+        RawPost(
+            title="两点理由往后可以关注闽泰：国家介入是支撑利好", author="散户甲",
+            publish_time="10:00", read_count=120, comment_count=5,
+        ),
+        RawPost(
+            title="好耶，跌停又吃面了，感谢主力送钱！", author="散户乙",
+            publish_time="10:05", read_count=210, comment_count=18,
+        ),
     ]
     mock_snapshot = MarketSnapshot(
         stock_code="600584",
@@ -164,13 +176,13 @@ def test_agent_records_disambiguation_and_execution_logs(agent_instance):
     assert len(logs) >= 5  # 采集 + 2条消歧 + 情绪聚合 + 行情对照 + 反思决策
 
     # 验证第一条语料消歧日志包含依据与标签
-    disambiguate_logs = [l for l in logs if "[语料消歧 #" in l]
+    disambiguate_logs = [log_item for log_item in logs if "[语料消歧 #" in log_item]
     assert len(disambiguate_logs) == 2
     assert "大模型消歧依据:" in disambiguate_logs[0]
     assert "大模型消歧依据:" in disambiguate_logs[1]
     assert "识别到反讽语义翻转" in disambiguate_logs[1]
 
     # 验证行情对照与反思推导阶段亦有日志归档
-    assert any("[行情事实对照]" in l for l in logs)
-    assert any("[多维反思决策]" in l for l in logs)
+    assert any("[行情事实对照]" in log_item for log_item in logs)
+    assert any("[多维反思决策]" in log_item for log_item in logs)
 

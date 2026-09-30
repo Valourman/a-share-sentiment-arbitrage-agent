@@ -1,5 +1,5 @@
 import concurrent.futures
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from src.tools.registry import ToolRegistry, global_tool_registry
 
 

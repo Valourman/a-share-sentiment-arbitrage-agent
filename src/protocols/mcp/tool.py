@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 from src.tools.base import Tool, ToolParameter
 from src.protocols.mcp.client import MCPClient
 

@@ -676,13 +676,6 @@ with st.sidebar:
                     "workflow_mode": True,
                     "timeout_seconds": float(global_config.timeout_seconds if global_config.timeout_seconds is not None else 30.0),
                 }
-                    "base_url": global_config.openai_base_url or "",
-                    "model_name": global_config.default_model or "gpt-4o-mini",
-                    "temperature": float(global_config.temperature if global_config.temperature is not None else 0.1),
-                    "max_posts": 30,
-                    "use_llm": True,
-                    "timeout_seconds": float(global_config.timeout_seconds if global_config.timeout_seconds is not None else 30.0),
-                }
                 st.rerun()
 
     st.markdown("<div style='font-size: 0.72rem; color: #9CA3AF; font-weight: 600; text-transform: uppercase; margin: 1rem 0 0.5rem 0.25rem;'>快速切换标的</div>", unsafe_allow_html=True)

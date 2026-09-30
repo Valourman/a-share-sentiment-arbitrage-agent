@@ -11,6 +11,12 @@ from typing import Any, Mapping, Optional
 from src.agent.state import AgentState, DivergenceType, ReflectionDecision, RiskLevel
 from src.core.market_schema import MarketSnapshot
 
+# 背离研判与样本有效性阈值常量
+BULLISH_SENTIMENT_THRESHOLD: float = 0.20
+BEARISH_SENTIMENT_THRESHOLD: float = -0.20
+PRICE_DROP_THRESHOLD_PCT: float = -0.5
+MIN_RELIABLE_SAMPLE_COUNT: int = 5
+
 
 def has_valid_market_snapshot(market: Optional[MarketSnapshot]) -> bool:
     """A failed or zero-filled quote is not evidence of a flat trading day."""
@@ -75,9 +81,9 @@ def assess_divergence(state: AgentState) -> DivergenceAssessment:
             False, DivergenceType.INSUFFICIENT_DATA, RiskLevel.UNKNOWN,
             sentiment, change, tuple(missing),
         )
-    if sentiment >= 0.20 and change < -0.5:
+    if sentiment >= BULLISH_SENTIMENT_THRESHOLD and change < PRICE_DROP_THRESHOLD_PCT:
         return DivergenceAssessment(True, DivergenceType.BULL_TRAP, RiskLevel.HIGH, sentiment, change)
-    if sentiment <= -0.20 and change >= 0.0:
+    if sentiment <= BEARISH_SENTIMENT_THRESHOLD and change >= 0.0:
         return DivergenceAssessment(True, DivergenceType.PANIC_BOTTOM, RiskLevel.MEDIUM, sentiment, change)
     return DivergenceAssessment(False, DivergenceType.CONSISTENT, RiskLevel.LOW, sentiment, change)
 
@@ -93,7 +99,7 @@ def build_reflection_decision(
     )
     sample_note = (
         "舆情样本较少，结果仅供参考。"
-        if state.sentiment_sample_count is not None and state.sentiment_sample_count < 5
+        if state.sentiment_sample_count is not None and state.sentiment_sample_count < MIN_RELIABLE_SAMPLE_COUNT
         else ""
     )
 

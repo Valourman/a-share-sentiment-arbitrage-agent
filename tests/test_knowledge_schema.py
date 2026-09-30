@@ -1,6 +1,5 @@
 """金融知识库核心 Schema 单元测试"""
 
-import pytest
 from src.knowledge.schema import KnowledgeType, Document, Chunk, RetrievalResult
 
 

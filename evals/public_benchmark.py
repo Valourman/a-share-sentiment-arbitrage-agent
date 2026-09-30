@@ -13,7 +13,7 @@ if sys.platform == 'win32':
 
 from rich.console import Console
 from rich.table import Table
-from evals.public_dataset import PUBLIC_BENCHMARK_DATASET, PublicEvalSample
+from evals.public_dataset import PUBLIC_BENCHMARK_DATASET
 from src.tools.analyzer import FinancialSentimentAnalyzer
 from src.core.schema import RawPost
 
@@ -57,8 +57,8 @@ def run_public_benchmark(engine_mode: str = 'jev'):
     dataset = PUBLIC_BENCHMARK_DATASET
     classes = ['bullish', 'bearish', 'neutral']
 
-    console.print(f'[bold cyan]>>> 启动学术公开基准评测 (Public Benchmark Pipeline)[/bold cyan]')
-    console.print(f'基准语料规范: [bold yellow]StockSentCN + ToSarcasm + SMP-ECISA[/bold yellow]')
+    console.print('[bold cyan]>>> 启动学术公开基准评测 (Public Benchmark Pipeline)[/bold cyan]')
+    console.print('基准语料规范: [bold yellow]StockSentCN + ToSarcasm + SMP-ECISA[/bold yellow]')
     console.print(f'样本规模: [bold green]{len(dataset)}[/bold green] 条标准标注语料 | 评测引擎: [bold magenta]{engine_mode.upper()}[/bold magenta]\n')
 
     actual_stances = []

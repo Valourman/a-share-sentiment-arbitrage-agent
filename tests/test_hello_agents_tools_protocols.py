@@ -1,5 +1,4 @@
-import pytest
-from src.tools.chain import ToolChain, ToolStep
+from src.tools.chain import ToolChain
 from src.tools.async_executor import AsyncToolExecutor
 from src.tools.builtin.calculator import CalculatorTool
 from src.tools.builtin.search import SearchTool

@@ -1,7 +1,6 @@
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from src.core.agent import Agent
-from src.core.exceptions import AgentException
 from src.core.llm import HelloAgentsLLM
 from src.core.message import Message
 from src.tools.registry import ToolRegistry, global_tool_registry
@@ -90,7 +89,7 @@ class ReActAgent(Agent):
                     # 尝试将参数作为单一参数或默认参数传递
                     observation = self.tools.execute(tool_name, query=tool_input)
                 else:
-                    observation = f"错误: 未配置有效的工具注册表"
+                    observation = "错误: 未配置有效的工具注册表"
             except Exception as e:
                 observation = f"执行工具 {tool_name} 失败: {str(e)}"
 

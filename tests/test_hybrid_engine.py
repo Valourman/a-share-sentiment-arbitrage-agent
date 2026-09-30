@@ -1,7 +1,6 @@
 """针对双路 RRF 混合检索引擎与金融知识库的单元测试"""
 
 import time
-import pytest
 from src.knowledge.embeddings import DeterministicHashEmbedding
 from src.knowledge.schema import Document, KnowledgeType
 from src.knowledge.hybrid_engine import FinancialRAGKnowledgeBase

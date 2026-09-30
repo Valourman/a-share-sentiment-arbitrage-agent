@@ -1,5 +1,4 @@
 import logging
-import os
 from typing import Any, Dict, Generator, List, Optional, Union
 from openai import OpenAI
 from src.core.config import AgentConfig, global_config

@@ -2,7 +2,6 @@
 单元测试: AgentState 与 DivergenceType 枚举测试套件
 命名规范: test_<功能>_<场景>_<期望结果>
 """
-import pytest
 from src.agent.state import DivergenceType, RiskLevel, ReflectionDecision, AgentState
 from src.core.market_schema import MarketSnapshot
 

@@ -49,7 +49,7 @@ class CalculatorTool(Tool):
         expr = str(expr).strip()
         # 安全正则过滤：仅允许数字、数学符号、白名单函数名及空白
         if not re.match(r"^[0-9\.\+\-\*\/\(\)\,\s\^a-zA-Z_]+$", expr):
-            return f"错误: 表达式包含不安全字符"
+            return "错误: 表达式包含不安全字符"
 
         # 语法替换 ^ 为 **
         python_expr = expr.replace("^", "**")

@@ -1,7 +1,7 @@
 import time
 from typing import Any, Callable, Dict, List, Optional
 from pydantic import BaseModel, Field
-from src.tools.base import Tool, ToolParameter
+from src.tools.base import Tool
 
 
 class TaskStatus:
