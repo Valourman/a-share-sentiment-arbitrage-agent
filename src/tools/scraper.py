@@ -53,7 +53,12 @@ class StockForumScraper(Tool):
     def execute(self, **kwargs: Any) -> Dict[str, Any]:
         """Tool 标准执行入口"""
         stock_code = kwargs.get("stock_code", "")
-        max_posts = int(kwargs.get("max_posts", 30))
+        # LLM 可能传入 "30篇" 之类的非纯数字参数，做健壮性兜底
+        try:
+            max_posts = int(str(kwargs.get("max_posts", 30)).strip().split()[0])
+        except (ValueError, IndexError):
+            logger.warning(f"max_posts 参数非法: {kwargs.get('max_posts')!r}，回退默认值 30")
+            max_posts = 30
         posts = self.fetch_guba_posts(stock_code, max_posts=max_posts)
         news = self.fetch_financial_news(stock_code, max_items=5)
         announcements = self.fetch_announcements(stock_code, max_items=4)
@@ -65,10 +70,11 @@ class StockForumScraper(Tool):
 
     def _format_symbol(self, stock_code: str) -> str:
         """转换 6 位股票代码为带市场前缀的代码 (如 sh600584, sz002594)"""
-        code = str(stock_code).strip()
-        if code.startswith(("60", "68", "90")):
+        # 仅保留数字，防止外部输入拼接进 URL 造成路径操纵
+        code = re.sub(r"\D", "", str(stock_code))
+        if code.startswith(("60", "68", "90", "5")):
             return f"sh{code}"
-        elif code.startswith(("00", "30", "20")):
+        elif code.startswith(("00", "30", "20", "2")):
             return f"sz{code}"
         elif code.startswith(("8", "4", "92")):
             return f"bj{code}"
@@ -89,8 +95,13 @@ class StockForumScraper(Tool):
             logger.warning(f"股吧爬取失败 [{clean_code}]: {e}")
             return []
 
-        soup = BeautifulSoup(html_content, "html.parser")
-        items = soup.select("tr.listitem")
+        try:
+            soup = BeautifulSoup(html_content, "html.parser")
+            items = soup.select("tr.listitem")
+        except Exception as e:
+            # 畸形 HTML 的解析异常同样纳入降级保护，避免逃逸后拖垮整条流水线
+            logger.warning(f"股吧页面解析失败 [{clean_code}]: {e}")
+            return []
 
         posts: List[RawPost] = []
         for item in items:

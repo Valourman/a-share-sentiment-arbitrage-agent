@@ -64,16 +64,46 @@ class FinancialWorkflowPipeline:
         tracer: Optional[AgentTracer] = None,
     ) -> "AgentState":
         """
-        执行完整多智能体研判工作流
+        执行完整多智能体研判工作流（含阶段级异常边界）
+        任意阶段失败时将失败终态写入执行日志并通知进度回调，再向上抛出原始异常
         """
-        from src.agent.decision import has_valid_market_snapshot
         from src.agent.state import AgentState
-
-        active_tracer = tracer or AgentTracer()
-        console.print(f"[bold cyan]>>> 启动现代化多智能体工作流 (Workflow Pipeline): 标的 [{stock_code}][/bold cyan]")
 
         state = AgentState(stock_code=stock_code)
         state.iteration_count = 1
+        try:
+            self._execute_phases(
+                state,
+                stock_code,
+                max_posts=max_posts,
+                use_llm=use_llm,
+                engine_mode=engine_mode,
+                progress_callback=progress_callback,
+                tracer=tracer,
+            )
+        except Exception as e:
+            now_str = datetime.now().strftime("%H:%M:%S")
+            state.execution_logs.append(f"[{now_str}] [工作流异常终止] {type(e).__name__}: {e}")
+            if progress_callback:
+                progress_callback(1.0, f"工作流执行失败: {type(e).__name__}: {e}")
+            raise
+        return state
+
+    def _execute_phases(
+        self,
+        state: "AgentState",
+        stock_code: str,
+        max_posts: int = 30,
+        use_llm: bool = True,
+        engine_mode: Optional[str] = None,
+        progress_callback: Optional[Callable[[float, str], None]] = None,
+        tracer: Optional[AgentTracer] = None,
+    ) -> None:
+        """按序执行 Phase 1-5 各阶段节点"""
+        from src.agent.decision import has_valid_market_snapshot
+
+        active_tracer = tracer or AgentTracer()
+        console.print(f"[bold cyan]>>> 启动现代化多智能体工作流 (Workflow Pipeline): 标的 [{stock_code}][/bold cyan]")
 
         # ==========================================
         # Phase 1: 并发金融感知流
@@ -100,10 +130,16 @@ class FinancialWorkflowPipeline:
         state.sentiment_sample_count = len(posts)
 
         now_str = datetime.now().strftime("%H:%M:%S")
-        state.execution_logs.append(
-            f"[{now_str}] [感知完成] 成功并发拉取散户语料 {len(posts)} 条，主流资讯 {len(news)} 篇，"
-            f"官方披露 {len(announcements)} 份，最新盘面现价 {market_snap.current_price:.2f} 元 (涨跌 {market_snap.change_percent:+.2f}%)"
-        )
+        if has_valid_market_snapshot(market_snap):
+            state.execution_logs.append(
+                f"[{now_str}] [感知完成] 成功并发拉取散户语料 {len(posts)} 条，主流资讯 {len(news)} 篇，"
+                f"官方披露 {len(announcements)} 份，最新盘面现价 {market_snap.current_price:.2f} 元 (涨跌 {market_snap.change_percent:+.2f}%)"
+            )
+        else:
+            state.execution_logs.append(
+                f"[{now_str}] [感知完成] 成功并发拉取散户语料 {len(posts)} 条，主流资讯 {len(news)} 篇，"
+                f"官方披露 {len(announcements)} 份，盘面行情获取失败，已降级为无效快照"
+            )
 
         # ==========================================
         # Phase 2: 批量情绪与反讽并发消歧
@@ -146,6 +182,7 @@ class FinancialWorkflowPipeline:
         if progress_callback:
             progress_callback(0.65, "工作流 Phase 3: 深度解析新闻与公告正文，提炼驱动催化剂与风险项...")
 
+        now_str = datetime.now().strftime("%H:%M:%S")
         state.execution_logs.append(f"[{now_str}] [工作流 Phase 3] 深度提炼新闻与公告传导逻辑 (催化剂/风险项)...")
         with active_tracer.span("workflow_phase3_catalyst", "analysis", inputs={"news": len(news), "ann": len(announcements)}) as span:
             catalysts, risks = self.catalyst_node.run(
@@ -167,6 +204,7 @@ class FinancialWorkflowPipeline:
         if progress_callback:
             progress_callback(0.80, "工作流 Phase 4: 触发多智能体博弈辩论 (BullAnalyst vs BearAnalyst)...")
 
+        now_str = datetime.now().strftime("%H:%M:%S")
         state.execution_logs.append(f"[{now_str}] [工作流 Phase 4] 开启多智能体博弈辩论 (多头研究员 vs 空头研究员)...")
         with active_tracer.span("workflow_phase4_debate", "debate", inputs={"sentiment": state.average_sentiment}) as span:
             debate_res = self.debate_node.run(
@@ -189,6 +227,7 @@ class FinancialWorkflowPipeline:
         if progress_callback:
             progress_callback(0.92, "工作流 Phase 5: 汇总盘面量价与多空博弈，生成终审风控决策...")
 
+        now_str = datetime.now().strftime("%H:%M:%S")
         state.execution_logs.append(f"[{now_str}] [工作流 Phase 5] 终审委员会结合客观盘面基准执行裁决...")
         with active_tracer.span("workflow_phase5_arbitration", "reflect", inputs={"divergence_check": True}) as span:
             decision = self.arbitration_node.run(state=state, debate_result=debate_res)
@@ -205,5 +244,3 @@ class FinancialWorkflowPipeline:
 
         if progress_callback:
             progress_callback(1.0, f"工作流执行完毕，已输出标的 [{stock_code}] 全景研判报告。")
-
-        return state

@@ -2,6 +2,9 @@ import time
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
+# 长期记忆容量上限：防止长驻进程内存无界增长，超限时按 (importance, created_at) 加权淘汰
+MAX_LONG_TERM_MEMORY = 1000
+
 
 class MemoryEntry(BaseModel):
     """记忆条目实体"""
@@ -37,8 +40,12 @@ class WorkingMemory:
         entry = MemoryEntry(content=content, role=role, importance=importance, user_id=user_id)
         self._entries.append(entry)
         if len(self._entries) > self.capacity:
-            # 淘汰最早的低重要性条目
-            self._entries.pop(0)
+            # 淘汰最早且重要性最低的条目（与注释语义一致），优先保护高重要记忆
+            victim_idx = min(
+                range(len(self._entries)),
+                key=lambda i: (self._entries[i].importance, self._entries[i].created_at),
+            )
+            self._entries.pop(victim_idx)
         return entry
 
     def search(self, query: str, user_id: str = "default_user", top_k: int = 5) -> List[MemoryEntry]:
@@ -73,6 +80,15 @@ class MemoryManager:
         self.working_memory = WorkingMemory(capacity=working_capacity, ttl_seconds=ttl_seconds)
         self.long_term_memory: List[MemoryEntry] = []
 
+    def _evict_long_term(self) -> None:
+        """长期记忆超出容量上限时，淘汰重要性最低且最旧的条目"""
+        if len(self.long_term_memory) > MAX_LONG_TERM_MEMORY:
+            victim_idx = min(
+                range(len(self.long_term_memory)),
+                key=lambda i: (self.long_term_memory[i].importance, self.long_term_memory[i].created_at),
+            )
+            self.long_term_memory.pop(victim_idx)
+
     def add(
         self,
         content: str,
@@ -82,9 +98,10 @@ class MemoryManager:
     ) -> MemoryEntry:
         """追加一条记忆到工作记忆"""
         entry = self.working_memory.add(content=content, role=role, importance=importance, user_id=user_id)
-        # 高重要性记忆直接沉淀至长期记忆 (阈值 >= 0.8)
+        # 高重要性记忆直接沉淀至长期记忆 (阈值 >= 0.8)，并维持长期记忆容量上限
         if importance >= 0.8:
             self.long_term_memory.append(entry)
+            self._evict_long_term()
         return entry
 
     def search(self, query: str, user_id: str = "default_user", top_k: int = 5) -> List[MemoryEntry]:
@@ -119,6 +136,7 @@ class MemoryManager:
         for item in working_items:
             if item.importance >= importance_threshold and item.content not in existing_contents:
                 self.long_term_memory.append(item)
+                self._evict_long_term()
                 existing_contents.add(item.content)
                 consolidated_count += 1
 

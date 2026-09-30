@@ -59,7 +59,17 @@ def run_public_benchmark(engine_mode: str = 'jev'):
 
     console.print('[bold cyan]>>> 启动学术公开基准评测 (Public Benchmark Pipeline)[/bold cyan]')
     console.print('基准语料规范: [bold yellow]StockSentCN + ToSarcasm + SMP-ECISA[/bold yellow]')
-    console.print(f'样本规模: [bold green]{len(dataset)}[/bold green] 条标准标注语料 | 评测引擎: [bold magenta]{engine_mode.upper()}[/bold magenta]\n')
+    # 引擎透明化：无对应 API Key 时 analyze 会静默回退 mock，
+    # 必须在报告中标注实际执行引擎，避免指标失真误导读者
+    if engine_mode == 'jev' and not getattr(analyzer, 'typesafe_api_key', None):
+        actual_engine = 'mock (未配置 TYPESAFE_API_KEY，已自动回退规则引擎)'
+        console.print('[bold yellow]警告: 指定 JEV 引擎但未配置 TYPESAFE_API_KEY，实际将以规则引擎执行。[/bold yellow]\n')
+    elif engine_mode == 'llm' and not analyzer.llm.is_available:
+        actual_engine = 'mock (未配置 OPENAI_API_KEY，已自动回退规则引擎)'
+        console.print('[bold yellow]警告: 指定 LLM 引擎但未配置 OPENAI_API_KEY，实际将以规则引擎执行。[/bold yellow]\n')
+    else:
+        actual_engine = engine_mode
+    console.print(f'样本规模: [bold green]{len(dataset)}[/bold green] 条标准标注语料 | 评测引擎: [bold magenta]{engine_mode.upper()}[/bold magenta] | 实际引擎: [bold magenta]{actual_engine}[/bold magenta]\n')
 
     actual_stances = []
     pred_stances = []
@@ -180,7 +190,6 @@ def run_public_benchmark(engine_mode: str = 'jev'):
     special_table.add_row('平均响应延迟 (Mean Latency)', f'[bold cyan]{mean_lat:.1f} ms[/bold cyan]', '非自回归单步毫秒级响应')
     special_table.add_row('P50 中位数耗时', f'{p50_lat:.1f} ms', '半数样本在此耗时内完成')
     special_table.add_row('P90 尾部耗时', f'{p90_lat:.1f} ms', '90% 样本网络峰值上限')
-    special_table.add_row('Schema 解析故障率', '[bold green]0.0%[/bold green]', '强类型输出，天然免疫格式损坏')
 
     console.print(special_table)
 

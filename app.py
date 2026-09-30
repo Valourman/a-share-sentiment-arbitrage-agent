@@ -1,3 +1,4 @@
+import html
 import streamlit as st
 import re
 import textwrap
@@ -7,6 +8,12 @@ from src.agent.state import AgentState, DivergenceType
 from src.agent.decision import has_valid_market_snapshot
 from src.core.config import AgentConfig, global_config
 from src.core.llm import HelloAgentsLLM
+
+
+def esc(value) -> str:
+    """HTML 转义外部文本（股吧帖子、新闻/公告标题、行情接口返回值等均为
+    任何人可发布的第三方内容），防止注入 unsafe_allow_html 的存储型 XSS"""
+    return html.escape(str(value if value is not None else ""), quote=True)
 
 # ============================================================
 # 1. 页面基础配置 (Gemini 沉浸式风格)
@@ -554,6 +561,10 @@ def run_configured_agent(stock_code: str):
             for s in agent.tracer.spans
         ]
         return state
+    except Exception as e:
+        # 统一入口级错误边界：所有调用入口（预设按钮/Hero卡片/chat_input）均不再裸抛 traceback
+        st.error(f"Agent 研判异常: {type(e).__name__}: {e}")
+        return None
     finally:
         progress_placeholder.empty()
 
@@ -844,7 +855,7 @@ else:
     user_bubble_html = f"""
     <div class="user-msg-bubble">
         <div class="user-msg-content">
-            启动标的 <strong style="color: #2563EB;">[{state.stock_name} ({state.stock_code})]</strong> 的全量散户情绪消歧、主流资讯整合与多方位异动背离研判。
+            启动标的 <strong style="color: #2563EB;">[{esc(state.stock_name or state.stock_code)} ({esc(state.stock_code)})]</strong> 的全量散户情绪消歧、主流资讯整合与多方位异动背离研判。
         </div>
     </div>
     """
@@ -874,8 +885,8 @@ else:
             <div class="market-chips-grid">
                 <div class="market-chip-card">
                     <div class="chip-label">分析标的</div>
-                    <div class="chip-value" style="font-size: 1.1rem; color: #1F2937;">{state.stock_name}</div>
-                    <div style="font-size: 0.72rem; color: #6B7280; font-family: monospace;">{state.stock_code}</div>
+                    <div class="chip-value" style="font-size: 1.1rem; color: #1F2937;">{esc(state.stock_name or state.stock_code)}</div>
+                    <div style="font-size: 0.72rem; color: #6B7280; font-family: monospace;">{esc(state.stock_code)}</div>
                 </div>
                 <div class="market-chip-card">
                     <div class="chip-label">实时成交价</div>
@@ -924,10 +935,10 @@ else:
                 </span>
             </div>
             <div style="font-size: 0.875rem; color: #374151; line-height: 1.6; margin-bottom: 0.75rem;">
-                <strong>多维因果推导逻辑：</strong>{ref.reflection_narrative}
+                <strong>多维因果推导逻辑：</strong>{esc(ref.reflection_narrative)}
             </div>
             <div style="padding: 0.65rem 0.85rem; background: rgba(0,0,0,0.03); border-radius: 0.75rem; font-size: 0.8rem; color: #4B5563;">
-                <strong>交易策略与风控提示：</strong>{ref.action_suggestion}
+                <strong>交易策略与风控提示：</strong>{esc(ref.action_suggestion)}
             </div>
         </div>
         """
@@ -988,36 +999,36 @@ else:
                         多智能体多空对抗博弈 (对标 TradingAgents / FinRobot Debate Protocol)
                     </div>
                     <div style="font-size: 0.75rem; background: #EEF2FF; color: #4338CA; padding: 0.2rem 0.65rem; border-radius: 9999px; font-weight: 600;">
-                        裁决态势: {dr.consensus_bias}
+                        裁决态势: {esc(dr.consensus_bias)}
                     </div>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.85rem;">
                     <div class="debate-col-bull">
                         <div style="font-weight: 700; color: #DC2626; font-size: 0.85rem; margin-bottom: 0.4rem;">
-                            {dr.bull_opinion.agent_name} (置信度: {dr.bull_opinion.confidence:.2f})
+                            {esc(dr.bull_opinion.agent_name)} (置信度: {dr.bull_opinion.confidence:.2f})
                         </div>
                         <div style="font-size: 0.8rem; color: #374151; margin-bottom: 0.5rem; font-weight: 600;">
-                            {dr.bull_opinion.core_thesis}
+                            {esc(dr.bull_opinion.core_thesis)}
                         </div>
                         <ul style="font-size: 0.75rem; color: #4B5563; margin: 0; padding-left: 1.1rem; line-height: 1.5;">
-                            {"".join(f"<li>{arg}</li>" for arg in dr.bull_opinion.arguments)}
+                            {"".join(f"<li>{esc(arg)}</li>" for arg in dr.bull_opinion.arguments)}
                         </ul>
                     </div>
                     <div class="debate-col-bear">
                         <div style="font-weight: 700; color: #059669; font-size: 0.85rem; margin-bottom: 0.4rem;">
-                            {dr.bear_opinion.agent_name} (置信度: {dr.bear_opinion.confidence:.2f})
+                            {esc(dr.bear_opinion.agent_name)} (置信度: {dr.bear_opinion.confidence:.2f})
                         </div>
                         <div style="font-size: 0.8rem; color: #374151; margin-bottom: 0.5rem; font-weight: 600;">
-                            {dr.bear_opinion.core_thesis}
+                            {esc(dr.bear_opinion.core_thesis)}
                         </div>
                         <ul style="font-size: 0.75rem; color: #4B5563; margin: 0; padding-left: 1.1rem; line-height: 1.5;">
-                            {"".join(f"<li>{arg}</li>" for arg in dr.bear_opinion.arguments)}
+                            {"".join(f"<li>{esc(arg)}</li>" for arg in dr.bear_opinion.arguments)}
                         </ul>
                     </div>
                 </div>
                 <div style="background: #F8FAFC; border-radius: 0.75rem; padding: 0.65rem 0.85rem; font-size: 0.78rem; color: #475569;">
-                    <strong>多空分歧焦点：</strong>{dr.key_divergence_point}<br>
-                    <strong>风控委员会仲裁结论：</strong>{dr.arbitration_summary}
+                    <strong>多空分歧焦点：</strong>{esc(dr.key_divergence_point)}<br>
+                    <strong>风控委员会仲裁结论：</strong>{esc(dr.arbitration_summary)}
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -1032,9 +1043,9 @@ else:
                 for c in catalysts:
                     st.markdown(f"""
                     <div class="catalyst-card" style="border-left: 3px solid #DC2626;">
-                        <div style="font-size: 0.75rem; color: #9CA3AF; margin-bottom: 0.2rem;">[{c.source_type.upper()}] 影响等级: {c.impact_level}</div>
-                        <div style="font-size: 0.8rem; font-weight: 600; color: #1F2937; margin-bottom: 0.3rem;">{c.source_title}</div>
-                        <div style="font-size: 0.75rem; color: #4B5563; line-height: 1.4;">{c.key_insight}</div>
+                        <div style="font-size: 0.75rem; color: #9CA3AF; margin-bottom: 0.2rem;">[{esc(c.source_type).upper()}] 影响等级: {esc(c.impact_level)}</div>
+                        <div style="font-size: 0.8rem; font-weight: 600; color: #1F2937; margin-bottom: 0.3rem;">{esc(c.source_title)}</div>
+                        <div style="font-size: 0.75rem; color: #4B5563; line-height: 1.4;">{esc(c.key_insight)}</div>
                     </div>
                     """, unsafe_allow_html=True)
             else:
@@ -1046,9 +1057,9 @@ else:
                 for r in risks:
                     st.markdown(f"""
                     <div class="catalyst-card" style="border-left: 3px solid #059669;">
-                        <div style="font-size: 0.75rem; color: #9CA3AF; margin-bottom: 0.2rem;">[{r.source_type.upper()}] 影响等级: {r.impact_level}</div>
-                        <div style="font-size: 0.8rem; font-weight: 600; color: #1F2937; margin-bottom: 0.3rem;">{r.source_title}</div>
-                        <div style="font-size: 0.75rem; color: #4B5563; line-height: 1.4;">{r.key_insight}</div>
+                        <div style="font-size: 0.75rem; color: #9CA3AF; margin-bottom: 0.2rem;">[{esc(r.source_type).upper()}] 影响等级: {esc(r.impact_level)}</div>
+                        <div style="font-size: 0.8rem; font-weight: 600; color: #1F2937; margin-bottom: 0.3rem;">{esc(r.source_title)}</div>
+                        <div style="font-size: 0.75rem; color: #4B5563; line-height: 1.4;">{esc(r.key_insight)}</div>
                     </div>
                     """, unsafe_allow_html=True)
             else:
@@ -1071,7 +1082,7 @@ else:
                 stance_color = "#4B5563"
                 stance_bg = "#F3F4F6"
 
-            slang_html = "".join([f'<span class="slang-pill">#{s}</span>' for s in item.slang_detected]) if item.slang_detected else '<span style="color: #9CA3AF; font-size: 0.7rem;">无特殊黑话</span>'
+            slang_html = "".join([f'<span class="slang-pill">#{esc(s)}</span>' for s in item.slang_detected]) if item.slang_detected else '<span style="color: #9CA3AF; font-size: 0.7rem;">无特殊黑话</span>'
             sarcasm_html = '<span class="sarcasm-pill">识别到反讽语义翻转</span>' if item.is_sarcasm else ''
 
             post_content = getattr(item, "raw_title", None) or f"股吧散户讨论语料 #{idx + 1}"
@@ -1092,12 +1103,12 @@ else:
                     </div>
                 </div>
                 <div style="font-size: 0.875rem; color: #1F2937; margin: 0.4rem 0 0.5rem 0; padding-left: 0.75rem; border-left: 3px solid #E5E7EB; font-style: italic;">
-                    “{post_content}”
+                    “{esc(post_content)}”
                 </div>
                 <details class="disambiguation-details">
                     <summary>📋 查看大模型消歧依据与日志</summary>
                     <div class="disambiguation-log-box">
-                        <strong>大模型消歧依据：</strong>{reason_text}
+                        <strong>大模型消歧依据：</strong>{esc(reason_text)}
                     </div>
                 </details>
             </div>
@@ -1107,17 +1118,17 @@ else:
     with tab_news:
         if state.news_list:
             for n_idx, news in enumerate(state.news_list):
-                link_html = f'<a href="{news.url}" target="_blank" style="color: #1A73E8; text-decoration: none; font-size: 0.8rem; margin-left: 0.5rem;">查看原文 ↗</a>' if news.url else ''
+                link_html = f'<a href="{esc(news.url)}" target="_blank" rel="noopener noreferrer" style="color: #1A73E8; text-decoration: none; font-size: 0.8rem; margin-left: 0.5rem;">查看原文 ↗</a>' if news.url else ''
                 news_card_html = f"""
                 <div class="info-card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                         <span style="font-size: 0.72rem; padding: 0.15rem 0.5rem; background: #E0F2FE; color: #0369A1; border-radius: 9999px; font-weight: 600;">
-                            {news.source}
+                            {esc(news.source)}
                         </span>
                         <span style="font-size: 0.75rem; color: #9CA3AF;">#{n_idx + 1} 实时财经资讯</span>
                     </div>
                     <div style="font-size: 0.9rem; font-weight: 600; color: #1F2937; line-height: 1.5;">
-                        {news.title} {link_html}
+                        {esc(news.title)} {link_html}
                     </div>
                 </div>
                 """
@@ -1128,7 +1139,7 @@ else:
     with tab_ann:
         if state.announcements:
             for a_idx, ann in enumerate(state.announcements):
-                link_html = f'<a href="{ann.url}" target="_blank" style="color: #1A73E8; text-decoration: none; font-size: 0.8rem; margin-left: 0.5rem;">官方查阅 ↗</a>' if ann.url else ''
+                link_html = f'<a href="{esc(ann.url)}" target="_blank" rel="noopener noreferrer" style="color: #1A73E8; text-decoration: none; font-size: 0.8rem; margin-left: 0.5rem;">官方查阅 ↗</a>' if ann.url else ''
                 ann_card_html = f"""
                 <div class="info-card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
@@ -1138,7 +1149,7 @@ else:
                         <span style="font-size: 0.75rem; color: #9CA3AF;">权威公告</span>
                     </div>
                     <div style="font-size: 0.9rem; font-weight: 600; color: #1F2937; line-height: 1.5;">
-                        {ann.title} {link_html}
+                        {esc(ann.title)} {link_html}
                     </div>
                 </div>
                 """

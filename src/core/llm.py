@@ -25,9 +25,17 @@ class HelloAgentsLLM:
         if not base_url:
             return "openai"
         url_lower = base_url.lower()
-        if "11434" in url_lower or "ollama" in url_lower:
+        # 精确解析 host:port，避免端口数字作为子串误伤无关域名
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(base_url if "//" in base_url else f"http://{base_url}")
+            host_port = (parsed.netloc or url_lower).lower()
+        except Exception:
+            host_port = url_lower
+        port = host_port.rsplit(":", 1)[-1] if ":" in host_port else ""
+        if "ollama" in url_lower or port == "11434":
             return "ollama"
-        if "8000" in url_lower or "vllm" in url_lower:
+        if "vllm" in url_lower or port == "8000":
             return "vllm"
         if "deepseek" in url_lower:
             return "deepseek"
@@ -47,13 +55,18 @@ class HelloAgentsLLM:
         if not api_key and self.provider in ["ollama", "vllm"] and base_url:
             api_key = "local_no_key_required"
 
-        if api_key and base_url:
+        # 仅配置 API Key（未配置自定义端点）时同样初始化客户端，
+        # 由 OpenAI SDK 自动使用官方默认端点；否则最常见配置将无法生效
+        if api_key:
             try:
-                self.client = OpenAI(
-                    api_key=api_key,
-                    base_url=base_url,
-                    timeout=self.config.timeout_seconds,
-                )
+                client_kwargs: Dict[str, Any] = {
+                    "api_key": api_key,
+                    "timeout": self.config.timeout_seconds,
+                    "max_retries": self.config.max_retries,
+                }
+                if base_url:
+                    client_kwargs["base_url"] = base_url
+                self.client = OpenAI(**client_kwargs)
             except Exception as e:
                 logger.warning(f"HelloAgentsLLM 客户端初始化失败: {e}")
 

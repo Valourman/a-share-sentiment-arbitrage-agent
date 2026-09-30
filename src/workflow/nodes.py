@@ -1,4 +1,5 @@
 import concurrent.futures
+import logging
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple
 
 from src.core.llm import HelloAgentsLLM
@@ -17,6 +18,8 @@ from src.workflow.state import (
 
 if TYPE_CHECKING:
     from src.agent.state import AgentState, ReflectionDecision
+
+logger = logging.getLogger(__name__)
 
 
 class IngestionNode:
@@ -39,17 +42,43 @@ class IngestionNode:
             progress_callback(0.1, f"感知流启动: 并发采集标的 [{stock_code}] 股吧/资讯/公告/行情...")
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-            future_posts = executor.submit(self.scraper.fetch_guba_posts, stock_code, max_posts=max_posts)
-            future_news = executor.submit(self.scraper.fetch_financial_news, stock_code, max_items=5)
-            future_ann = executor.submit(self.scraper.fetch_announcements, stock_code, max_items=4)
-            future_market = executor.submit(self.market_tool.fetch_snapshot, stock_code)
+            future_posts = executor.submit(self._safe_fetch, self.scraper.fetch_guba_posts, stock_code, max_posts=max_posts)
+            future_news = executor.submit(self._safe_fetch, self.scraper.fetch_financial_news, stock_code, max_items=5)
+            future_ann = executor.submit(self._safe_fetch, self.scraper.fetch_announcements, stock_code, max_items=4)
+            future_market = executor.submit(self._safe_fetch_market, stock_code)
 
+            # 部分失败隔离：单源异常降级为空结果，不拖垮其余已成功的采集路
             posts = future_posts.result()
             news = future_news.result()
             announcements = future_ann.result()
             market_snap = future_market.result()
 
         return posts, news, announcements, market_snap
+
+    @staticmethod
+    def _safe_fetch(fetch_fn: Callable, *args: Any, **kwargs: Any) -> Any:
+        """列表型采集失败时降级为空列表并记录告警，保证流水线可部分继续"""
+        try:
+            return fetch_fn(*args, **kwargs)
+        except Exception as e:
+            logger.warning(f"感知流采集路 [{getattr(fetch_fn, '__name__', fetch_fn)}] 失败，已降级为空结果: {e}")
+            return []
+
+    def _safe_fetch_market(self, stock_code: str) -> MarketSnapshot:
+        """行情路失败时降级为无效快照（保持 MarketSnapshot 返回契约）"""
+        try:
+            return self.market_tool.fetch_snapshot(stock_code)
+        except Exception as e:
+            logger.warning(f"感知流行情采集路失败，已降级为无效快照: {e}")
+            return MarketSnapshot(
+                stock_code=stock_code,
+                stock_name="未识别标的",
+                current_price=0.0,
+                pre_close=0.0,
+                change_percent=0.0,
+                turnover_amount_yi=0.0,
+                is_trading=False,
+            )
 
 
 class DisambiguationNode:
@@ -74,26 +103,36 @@ class DisambiguationNode:
         if progress_callback:
             progress_callback(0.3, f"情绪流执行: 正对 {len(posts)} 条散户语料进行并发反讽消歧...")
 
-        # 若是 Mock 模式或语料极少，直接串行
-        if not use_llm or engine_mode == "mock" or len(posts) <= 2:
+        # 归一化引擎语义：use_llm=False 强制 mock，防止 (use_llm=False, engine_mode="llm")
+        # 这类矛盾组合绕过调用方的显式降级意图
+        if engine_mode == "mock":
+            use_llm = False
+        if not use_llm:
+            engine_mode = "mock"
+
+        # Mock 模式或语料极少时直接串行
+        if engine_mode == "mock" or len(posts) <= 2:
             results: List[SentimentAnalysisResult] = []
             for p in posts:
                 if engine_mode:
                     res = self.analyzer.analyze(p, engine_mode=engine_mode)
-                elif use_llm:
-                    res = self.analyzer.analyze_with_llm(p)
                 else:
-                    res = self.analyzer.analyze_mock(p)
+                    res = self.analyzer.analyze_with_llm(p)
                 results.append(res)
             return results
 
         # 并发批处理加速 LLM 消歧
         results = [None] * len(posts)  # type: ignore
 
-        def _analyze_single(idx: int, post: Any):
-            if engine_mode:
-                return idx, self.analyzer.analyze(post, engine_mode=engine_mode)
-            return idx, self.analyzer.analyze_with_llm(post)
+        def _analyze_single(idx: int, post: Any) -> Tuple[int, SentimentAnalysisResult]:
+            # 单条失败降级为 mock 结果填充原位，保证结果与语料严格等长、索引不错位
+            try:
+                if engine_mode:
+                    return idx, self.analyzer.analyze(post, engine_mode=engine_mode)
+                return idx, self.analyzer.analyze_with_llm(post)
+            except Exception as e:
+                logger.warning(f"语料 #{idx + 1} 消歧失败，已降级为规则引擎结果: {e}")
+                return idx, self.analyzer.analyze_mock(post)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [executor.submit(_analyze_single, i, p) for i, p in enumerate(posts)]
@@ -106,7 +145,8 @@ class DisambiguationNode:
                     prog = 0.3 + (completed / len(posts)) * 0.25
                     progress_callback(prog, f"消歧进度: 已完成 {completed}/{len(posts)} 条语料反讽判定...")
 
-        return [r for r in results if r is not None]
+        # 契约保证：返回结果与输入语料一一对应（失败位已由 mock 填充）
+        return [r if r is not None else self.analyzer.analyze_mock(posts[i]) for i, r in enumerate(results)]
 
 
 class FundamentalCatalystNode:
@@ -187,17 +227,8 @@ class FundamentalCatalystNode:
                     )
                 )
 
-        # 如果未匹配到极端词汇，根据资讯总量生成基础中性洞察
-        if not catalysts and news_list:
-            catalysts.append(
-                CatalystItem(
-                    source_title=news_list[0].title,
-                    source_type="news",
-                    catalyst_type=CatalystType.POSITIVE,
-                    key_insight="近期存在一定程度的主流媒体跟踪与行业讨论热度",
-                    impact_level="LOW",
-                )
-            )
+        # 未匹配到关键词时不再凭空捏造 POSITIVE 催化：把中性新闻包装成利好
+        # 会污染多空辩论的证据链，无依据时保持空列表由辩论节点走中性兜底论据
 
         if not risks and len(news_list) >= 3:
             risks.append(
@@ -257,7 +288,8 @@ class MultiAgentDebateNode:
             core_thesis=f"标的 [{stock_name}] 具备一定催化预期与多方动能，短期具备上行防御或脉冲机会",
             arguments=bull_args,
             evidence_citations=bull_citations,
-            confidence=round(min(0.5 + max(sentiment, 0.0) * 0.3 + (0.1 if chg > 0 else -0.1), 0.95), 2),
+            # 行情缺失 (market_valid=False) 时不施加盘面加减分，避免把"无证据"当"盘跌"
+            confidence=round(min(0.5 + max(sentiment, 0.0) * 0.3 + ((0.1 if chg > 0 else -0.1) if market_valid else 0.0), 0.95), 2),
         )
 
         # 空头论据构建
@@ -284,11 +316,24 @@ class MultiAgentDebateNode:
             core_thesis=f"标的 [{stock_name}] 盘面与情绪暗藏背离或承压迹象，应高度警惕诱多出货或下行破位",
             arguments=bear_args,
             evidence_citations=bear_citations,
-            confidence=round(min(0.5 + (0.3 if sentiment >= 0.2 and chg < -0.5 else 0.1) + (0.15 if sarcasm_count > 0 else 0.0), 0.95), 2),
+            # 与多头公式对称：情绪空方强度 + 盘面涨跌证据（行情缺失时不加分） + 反讽信号，
+            # 消除旧公式"空头任何情况保底 0.6"的系统性偏空偏置
+            confidence=round(
+                min(
+                    0.5
+                    + max(-sentiment, 0.0) * 0.3
+                    + ((0.1 if chg < 0 else -0.1) if market_valid else 0.0)
+                    + (0.15 if sarcasm_count > 0 else 0.0),
+                    0.95,
+                ),
+                2,
+            ),
         )
 
         # 核心分歧点提炼
-        if sentiment >= 0.2 and chg < -0.5:
+        if not market_valid:
+            key_divergence = "盘面数据不可用，多空博弈聚焦于情绪面与基本面证据的可信度"
+        elif sentiment >= 0.2 and chg < -0.5:
             key_divergence = "散户亢奋做多情绪与盘面破位下跌形成尖锐背离；多头执着于消息面催化，空头咬定主力假拉真砸"
         elif sentiment <= -0.2 and chg >= 0:
             key_divergence = "散户割肉恐慌情绪与盘面拒绝下跌形成背离；空头担忧惯性砸盘，多头捕捉筹码沉淀洗盘迹象"
@@ -297,15 +342,17 @@ class MultiAgentDebateNode:
         else:
             key_divergence = "多空博弈焦灼，核心分歧在于是处于震荡筑底阶段还是阴跌中继"
 
-        # 倾向定性
+        # 倾向定性（行情缺失时不做量价背离定性，防止 chg=0 被当作真实平盘）
         if bull_opinion.confidence > bear_opinion.confidence + 0.15:
             consensus_bias = "多方占优 (BULL_DOMINANT)"
         elif bear_opinion.confidence > bull_opinion.confidence + 0.15:
             consensus_bias = "空方占优 (BEAR_DOMINANT)"
-        elif sentiment >= 0.2 and chg < -0.5:
+        elif market_valid and sentiment >= 0.2 and chg < -0.5:
             consensus_bias = "警惕诱多 (BULL_TRAP_BIAS)"
-        elif sentiment <= -0.2 and chg >= 0:
+        elif market_valid and sentiment <= -0.2 and chg >= 0:
             consensus_bias = "蓄势磨底 (PANIC_BOTTOM_BIAS)"
+        elif not market_valid:
+            consensus_bias = "盘面证据缺失 (NO_MARKET_EVIDENCE)"
         else:
             consensus_bias = "势均力敌 (BALANCED_STALEMATE)"
 

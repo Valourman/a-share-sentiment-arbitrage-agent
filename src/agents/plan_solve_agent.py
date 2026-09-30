@@ -1,9 +1,12 @@
 import json
+import logging
 import re
 from typing import Any, List, Optional
 from src.core.agent import Agent
 from src.core.llm import HelloAgentsLLM
 from src.core.message import Message
+
+logger = logging.getLogger(__name__)
 
 PLANNER_PROMPT_TEMPLATE = """针对给定的复杂问题，制定一个清晰、精炼、按步骤分解的执行计划。
 请严格输出一个 JSON 格式的字符串列表，不要输出任何多余的解释或包裹文字。
@@ -60,11 +63,11 @@ class PlanAndSolveAgent(Agent):
             steps = json.loads(cleaned)
             if isinstance(steps, list) and steps:
                 return [str(s) for s in steps]
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"计划 JSON 解析失败，退化为按行提取。原始响应片段: {response[:120]!r} ({e})")
 
-        # 兜底按行提取非空行
-        lines = [line.strip("- 0123456789.、") for line in response.splitlines() if line.strip()]
+        # 兜底按行提取非空行（仅剥除列表前缀符号，避免把数字开头的正文一并剥掉）
+        lines = [re.sub(r"^[\s\-\d\.、]+(?=\S)", "", line).strip() for line in response.splitlines() if line.strip()]
         return lines if lines else [question]
 
     def execute_step(self, question: str, step: str, previous_context: str, **kwargs: Any) -> str:

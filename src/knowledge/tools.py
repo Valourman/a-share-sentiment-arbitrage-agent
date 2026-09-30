@@ -78,7 +78,7 @@ class FinancialKnowledgeTool(BaseTool):
         """
         q = (query or kwargs.get("input", "")).strip()
         code = stock_code or kwargs.get("code")
-        limit = int(kwargs.get("top_k", top_k))
+        limit = top_k
 
         try:
             if not q:

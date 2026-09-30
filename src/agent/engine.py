@@ -47,7 +47,8 @@ class SentimentArbitrageAgent(ReflectionAgent):
         self.scraper: StockForumScraper = self.tools.get("stock_scraper") or StockForumScraper()
         self.market_tool: MarketDataTool = self.tools.get("market_data") or MarketDataTool()
 
-        configured_analyzer = tools.get("sentiment_analyzer") if tools is not None else None
+        # 获取或注册具象工具（统一从 self.tools 解析，与 scraper/market 保持一致）
+        configured_analyzer = self.tools.get("sentiment_analyzer") if tools is not None else None
         self.analyzer: FinancialSentimentAnalyzer = configured_analyzer or FinancialSentimentAnalyzer(llm=self.llm)
 
         # 现代化金融工作流流水线编排器

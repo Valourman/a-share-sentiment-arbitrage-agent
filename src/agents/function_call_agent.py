@@ -59,11 +59,12 @@ class FunctionCallAgent(Agent):
                 self.add_message(Message.assistant(content))
                 return content
 
-            # 处理 tool_calls
+            # 处理 tool_calls：必须作为一等字段写入消息，
+            # 否则下一轮 to_openai_dict() 序列化时会丢失并被 API 拒绝
             assistant_msg = Message(
                 role=RoleType.ASSISTANT,
                 content=msg.content or "",
-                metadata={"tool_calls": [tc.model_dump() for tc in msg.tool_calls]},
+                tool_calls=[tc.model_dump() for tc in msg.tool_calls],
             )
             self.add_message(assistant_msg)
 
@@ -72,8 +73,16 @@ class FunctionCallAgent(Agent):
                 raw_args = tool_call.function.arguments
                 try:
                     args = json.loads(raw_args) if isinstance(raw_args, str) else (raw_args or {})
-                except Exception:
-                    args = {}
+                except Exception as e:
+                    # 参数解析失败时把错误作为 tool 结果回传，让 LLM 自我修正
+                    args = None
+                    self.add_message(Message(
+                        role=RoleType.TOOL,
+                        name=function_name,
+                        content=f"错误: 工具参数 JSON 解析失败: {e}",
+                        tool_call_id=tool_call.id,
+                    ))
+                    continue
 
                 # 执行工具
                 try:
@@ -84,12 +93,12 @@ class FunctionCallAgent(Agent):
                 except Exception as e:
                     result = f"工具 {function_name} 执行异常: {str(e)}"
 
-                # 回传 tool 角色消息
+                # 回传 tool 角色消息（携带 tool_call_id 以满足协议配对要求）
                 tool_msg = Message(
                     role=RoleType.TOOL,
                     name=function_name,
                     content=str(result),
-                    metadata={"tool_call_id": tool_call.id},
+                    tool_call_id=tool_call.id,
                 )
                 self.add_message(tool_msg)
 

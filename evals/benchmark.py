@@ -11,6 +11,13 @@ def run_evals():
     console.print('[bold cyan]>>> 启动 Agent 自动化量化评测流水线 (Evals Pipeline)[/bold cyan]')
     console.print(f'测试样本规模: [bold yellow]{len(EVAL_DATASET)}[/bold yellow] 条经典 A 股舆情语料')
     console.print('对照实验组 1: 规则基线引擎 (Rule Baseline)')
+    # Fail-fast：未配置 API Key 时 analyze_with_llm 会静默降级为 mock，
+    # 导致"LLM 判断"列实际跑的是关键词规则，指标完全失真
+    if not analyzer.llm.is_available:
+        console.print('[bold red]错误: LLM 客户端未就绪 (缺少 OPENAI_API_KEY 配置)。[/bold red]')
+        console.print('为避免降级结果冒充 LLM 指标，请先配置 .env 后重试；')
+        console.print('如仅想评测规则基线，请阅读 evals/dataset.py 后自行裁剪对照组。')
+        raise SystemExit(1)
     console.print(f'对照实验组 2: 真实 LLM 语义引擎 ({analyzer.model_name})\n')
 
     rule_correct = 0
@@ -66,8 +73,9 @@ def run_evals():
     total = len(EVAL_DATASET)
     rule_acc = (rule_correct / total) * 100
     llm_acc = (llm_correct / total) * 100
-    rule_sarcasm_acc = (rule_sarcasm_correct / total_sarcasm_samples) * 100
-    llm_sarcasm_acc = (llm_sarcasm_correct / total_sarcasm_samples) * 100
+    # 防除零：数据集无反讽样本时该项指标无意义
+    rule_sarcasm_acc = (rule_sarcasm_correct / total_sarcasm_samples) * 100 if total_sarcasm_samples else 0.0
+    llm_sarcasm_acc = (llm_sarcasm_correct / total_sarcasm_samples) * 100 if total_sarcasm_samples else 0.0
 
     summary_table = Table(title=' 最终量化指标汇总 (可直接写入简历)', show_header=True, header_style='bold green')
     summary_table.add_column('指标名称', width=26)

@@ -1,7 +1,11 @@
 import time
+import uuid
 from typing import Any, Callable, Dict, List, Optional
 from pydantic import BaseModel, Field
 from src.tools.base import Tool
+
+# 任务字典容量上限：防止长驻进程内存无界增长
+_MAX_TASKS = 1024
 
 
 class TaskStatus:
@@ -18,8 +22,13 @@ class A2ATask(BaseModel):
     input_data: Dict[str, Any]
     status: str = TaskStatus.PENDING
     result: Optional[Any] = None
+    error: Optional[str] = None
     artifacts: List[Dict[str, Any]] = Field(default_factory=list)
     created_at: float = Field(default_factory=time.time)
+
+
+class A2ASkillError(Exception):
+    """A2A 技能执行失败异常（调用方可据此与正常结果区分）"""
 
 
 class A2AServer:
@@ -36,11 +45,16 @@ class A2AServer:
         self._skills[skill_name] = handler
 
     def submit_task(self, task_name: str, input_data: Dict[str, Any]) -> A2ATask:
-        task_id = f"task_{self.agent_id}_{int(time.time() * 1000)}"
+        # 追加随机后缀避免同毫秒提交的任务 ID 碰撞互相覆盖
+        task_id = f"task_{self.agent_id}_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
         task = A2ATask(task_id=task_id, task_name=task_name, input_data=input_data)
+        # 容量上限淘汰：超出时丢弃最旧任务
+        if len(self._tasks) >= _MAX_TASKS:
+            oldest = min(self._tasks.values(), key=lambda t: t.created_at)
+            self._tasks.pop(oldest.task_id, None)
         self._tasks[task_id] = task
 
-        # 同步/异步派发执行
+        # 同步派发执行（失败信息记入 error 字段而非 result，保证结果语义可区分）
         if task_name in self._skills:
             task.status = TaskStatus.RUNNING
             try:
@@ -48,10 +62,10 @@ class A2AServer:
                 task.status = TaskStatus.COMPLETED
             except Exception as e:
                 task.status = TaskStatus.FAILED
-                task.result = str(e)
+                task.error = f"{type(e).__name__}: {e}"
         else:
             task.status = TaskStatus.FAILED
-            task.result = f"未找到技能: {task_name}"
+            task.error = f"未找到技能: {task_name}"
 
         return task
 
@@ -69,6 +83,9 @@ class A2AClient:
 
     def request_skill(self, skill_name: str, **kwargs: Any) -> Any:
         task = self.server.submit_task(skill_name, kwargs)
+        # 检查任务终态：失败时抛出领域异常，避免错误字符串沿调用链静默传播
+        if task.status == TaskStatus.FAILED:
+            raise A2ASkillError(task.error or f"技能 '{skill_name}' 执行失败")
         return task.result
 
 
@@ -76,9 +93,12 @@ class A2ATool(Tool):
     """将 A2A 协作技能封装为当前 Agent 的普通工具"""
     def __init__(self, client: A2AClient, skill_name: str, description: str = ""):
         self.client = client
+        self.skill_name = skill_name
         self.name = f"a2a_{skill_name}"
         self.description = description or f"跨智能体调用协同技能: {skill_name}"
         super().__init__()
 
     def execute(self, **kwargs: Any) -> Any:
-        return self.client.request_skill(self.name.replace("a2a_", ""), **kwargs)
+        # 直接使用构造时保存的技能名，避免字符串 replace 反推在技能名
+        # 本身含 "a2a_" 前缀时被错误多处替换
+        return self.client.request_skill(self.skill_name, **kwargs)

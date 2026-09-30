@@ -120,8 +120,6 @@ python -m venv .venv
 安装项目依赖：
 
 ```bash
-pip install -r requirements.txt
-# 或者使用 pyproject.toml 模式安装
 pip install -e .
 ```
 
@@ -159,7 +157,7 @@ pip install -e .
 | 环境变量 | 默认值 | 作用说明 |
 | :--- | :--- | :--- |
 | `OPENAI_API_KEY` | 空 | 商业模型调用密钥（支持 OpenAI、DeepSeek、Qwen 等兼容端点） |
-| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | 兼容模型服务的基础 URL |
+| `OPENAI_BASE_URL` | 空 | 兼容模型服务的基础 URL（未设置时使用 OpenAI 官方端点） |
 | `MODEL_NAME` | `gpt-4o` | 用于反讽消歧与多空辩论的主模型标识 |
 | `TYPESAFE_API_KEY` | 空 | TypeSafe Jev 快思考决策引擎密钥（可选，未设置时自动路由至 LLM 或规则） |
 | `DEFAULT_SENTIMENT_ENGINE` | `auto` | 情绪消歧引擎模式：`auto` / `llm` / `mock` |
@@ -182,6 +180,8 @@ python -m evals.benchmark
 | **综合多空立场判定 (Stance)** | 15 条 | **100.0%** | 准确识别散户多空预期与分歧态势 |
 | **隐晦反讽 / 黑话穿透 (Sarcasm)** | 5 条反讽样本 | **100.0%** | 精准识别正话反说与情绪破防语境 |
 
+> ⚠️ 评测口径说明：以上为 **15 条手工构造样本** 上的结果，部分语料与规则引擎关键词存在重叠（循环验证风险），不能据此推断真实市场语料上的泛化表现。生产使用前建议以真实股吧抽样 + 独立人工标注重建基准。
+
 ### 2. 公开学术范式基准 (Public Academic Benchmark)
 
 位于 `evals/public_dataset.py`，融合 StockSentCN / ToSarcasm / SMP-ECISA 范式构建 35 条评估样本：
@@ -198,7 +198,7 @@ python -m evals.public_benchmark
 # 运行全部单元测试
 pytest
 
-# 运行覆盖率检查
+# 运行覆盖率检查（需先自行安装: pip install pytest-cov）
 pytest --cov=src
 
 # 执行代码风格与静态类型检查

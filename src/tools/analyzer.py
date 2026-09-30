@@ -225,6 +225,8 @@ class FinancialSentimentAnalyzer(Tool):
             except Exception as e:
                 logger.warning(f'LLM call error: {e}')
 
+        # LLM 重试耗尽后的全量降级：显式记录，避免研判质量劣化对调用方不可见
+        logger.warning(f"LLM 消歧失败，语料 [{post.title[:30]}...] 降级为规则引擎结果")
         return self.analyze_mock(post)
 
     def analyze_mock(self, post: RawPost) -> SentimentAnalysisResult:

@@ -12,6 +12,10 @@ class FinancialChunker:
     """
 
     def __init__(self, chunk_size: int = 250, chunk_overlap: int = 50):
+        if chunk_size <= 0:
+            raise ValueError(f"chunk_size 必须为正整数，收到: {chunk_size}")
+        if chunk_overlap < 0 or chunk_overlap >= chunk_size:
+            raise ValueError(f"chunk_overlap 必须满足 0 <= overlap < chunk_size，收到: overlap={chunk_overlap}, size={chunk_size}")
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
 
@@ -49,6 +53,22 @@ class FinancialChunker:
         paragraphs = [p.strip() for p in content.split("\n\n") if p.strip()]
         if not paragraphs:
             paragraphs = [content]
+
+        # 超长单段落硬切兜底：无空行的长段落（中文网页文本极常见）若不切分
+        # 会绕过 chunk_size 上限，稀释向量并失去检索粒度
+        sized_paragraphs: List[str] = []
+        for para in paragraphs:
+            if len(para) <= self.chunk_size:
+                sized_paragraphs.append(para)
+                continue
+            step = self.chunk_size - self.chunk_overlap
+            start = 0
+            while start < len(para):
+                sized_paragraphs.append(para[start:start + self.chunk_size])
+                if start + self.chunk_size >= len(para):
+                    break
+                start += step
+        paragraphs = sized_paragraphs
 
         chunks: List[Chunk] = []
         current_text = ""

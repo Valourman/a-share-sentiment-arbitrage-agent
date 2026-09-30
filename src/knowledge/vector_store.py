@@ -50,11 +50,17 @@ class InMemoryVectorStore:
 
         参数:
             chunks: 切片对象列表
+
+        说明:
+            缺失向量的切片聚合后走 embed_documents 批量接口，
+            避免接入真实远程 embedding 服务时退化为逐条网络往返 (N 次调用反模式)
         """
-        for chunk in chunks:
-            if chunk.vector is None:
-                chunk.vector = self.embedding_model.embed_query(chunk.text)
-            self._chunks.append(chunk)
+        pending = [c for c in chunks if c.vector is None]
+        if pending:
+            vectors = self.embedding_model.embed_documents([c.text for c in pending])
+            for c, v in zip(pending, vectors):
+                c.vector = v
+        self._chunks.extend(chunks)
 
     def similarity_search(
         self,

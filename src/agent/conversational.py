@@ -35,14 +35,23 @@ class ConversationalArbitrageAgent:
         self.current_stock_name: Optional[str] = None
         self.last_analysis_state: Optional[AgentState] = None
 
-        # 可选的自由对话大模型客户端
+        # 可选的自由对话大模型客户端（复用统一配置；仅配置 API Key 时同样生效，
+        # 并携带超时与重试，避免网络挂起时 UI 线程无限阻塞）
         self.api_key = os.getenv('OPENAI_API_KEY')
         self.base_url = os.getenv('OPENAI_BASE_URL')
         self.model_name = os.getenv('MODEL_NAME', 'gpt-4o')
+        self.llm_timeout = float(os.getenv('TIMEOUT_SECONDS', '30'))
         self.client = None
-        if self.api_key and self.base_url:
+        if self.api_key:
             try:
-                self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+                client_kwargs = {
+                    'api_key': self.api_key,
+                    'timeout': self.llm_timeout,
+                    'max_retries': 2,
+                }
+                if self.base_url:
+                    client_kwargs['base_url'] = self.base_url
+                self.client = OpenAI(**client_kwargs)
             except Exception as e:
                 logger.warning(f'Conversational OpenAI init error: {e}')
 
@@ -199,7 +208,8 @@ class ConversationalArbitrageAgent:
                     messages=messages,
                     temperature=0.3,
                 )
-                return resp.choices[0].message.content
+                # content 可能为 None（如触发内容过滤），显式兜底保证 str 返回契约
+                return resp.choices[0].message.content or ''
             except Exception as e:
                 logger.warning(f"LLM synthesis error: {e}, falling back to targeted rule-based synthesizer")
 
@@ -324,7 +334,7 @@ class ConversationalArbitrageAgent:
                     messages=messages,
                     temperature=0.7,
                 )
-                return resp.choices[0].message.content
+                return resp.choices[0].message.content or ''
             except Exception as e:
                 logger.warning(f'LLM chat failed: {e}')
 

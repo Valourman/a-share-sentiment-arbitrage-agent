@@ -1,7 +1,10 @@
+import logging
 import re
 import urllib.parse
 import urllib.request
 from typing import Optional, Tuple, Dict
+
+logger = logging.getLogger(__name__)
 
 
 class StockResolver:
@@ -86,8 +89,10 @@ class StockResolver:
                 continue
 
             res = cls.search_online(token)
-            cls._RUNTIME_CACHE[token] = res
+            # 查询失败 (None) 不做永久负缓存：一次网络抖动不应导致该词
+            # 在进程生命周期内永远无法解析，仅缓存成功结果
             if res:
+                cls._RUNTIME_CACHE[token] = res
                 return res
 
         return None
@@ -97,7 +102,7 @@ class StockResolver:
         """统一请求新浪证券联想接口并解析 suggestvalue 字段"""
         try:
             encoded_key = urllib.parse.quote(key)
-            url = f'http://suggest3.sinajs.cn/suggest/type=11,12,13,14,15&key={encoded_key}'
+            url = f'https://suggest3.sinajs.cn/suggest/type=11,12,13,14,15&key={encoded_key}'
             req = urllib.request.Request(
                 url,
                 headers={'Referer': 'https://finance.sina.com.cn', 'User-Agent': 'Mozilla/5.0'},
@@ -107,8 +112,8 @@ class StockResolver:
             if 'suggestvalue="' in text:
                 val = text.split('suggestvalue="')[1].split('"')[0]
                 return val or None
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"联想接口请求失败 [{key}]: {e}")
         return None
 
     @classmethod

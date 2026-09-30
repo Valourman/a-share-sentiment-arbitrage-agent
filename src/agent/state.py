@@ -15,8 +15,13 @@ class DivergenceType(str, Enum):
     def _missing_(cls, value):
         if isinstance(value, str):
             val_upper = value.strip().upper()
+            # 空串/纯空白不得匹配任何成员，避免脏数据被静默判为 BULL_TRAP
+            # 污染下游风控结论（空串 in 任意字符串恒为 True）
+            if not val_upper:
+                return super()._missing_(value)
             for member in cls:
-                if member.name == val_upper or val_upper in member.value.upper():
+                # 子串匹配要求最小长度，防止无意义短串（如 "BULL"）误吞
+                if member.name == val_upper or (len(val_upper) >= 3 and val_upper in member.value.upper()):
                     return member
         return super()._missing_(value)
 
