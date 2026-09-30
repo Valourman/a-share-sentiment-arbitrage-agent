@@ -1,5 +1,4 @@
 from pydantic import BaseModel, Field
-from typing import Optional
 
 class MarketSnapshot(BaseModel):
     stock_code: str = Field(description='6位股票代码')

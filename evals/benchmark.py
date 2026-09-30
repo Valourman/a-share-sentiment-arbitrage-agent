@@ -1,5 +1,3 @@
-import sys
-import time
 from rich.console import Console
 from rich.table import Table
 from evals.dataset import EVAL_DATASET
@@ -10,9 +8,9 @@ console = Console()
 
 def run_evals():
     analyzer = FinancialSentimentAnalyzer()
-    console.print(f'[bold cyan]>>> 启动 Agent 自动化量化评测流水线 (Evals Pipeline)[/bold cyan]')
+    console.print('[bold cyan]>>> 启动 Agent 自动化量化评测流水线 (Evals Pipeline)[/bold cyan]')
     console.print(f'测试样本规模: [bold yellow]{len(EVAL_DATASET)}[/bold yellow] 条经典 A 股舆情语料')
-    console.print(f'对照实验组 1: 规则基线引擎 (Rule Baseline)')
+    console.print('对照实验组 1: 规则基线引擎 (Rule Baseline)')
     console.print(f'对照实验组 2: 真实 LLM 语义引擎 ({analyzer.model_name})\n')
 
     rule_correct = 0
@@ -32,7 +30,7 @@ def run_evals():
 
     for sample in EVAL_DATASET:
         post = RawPost(title=sample.text)
-        
+
         # 1. 跑规则基线
         res_rule = analyzer.analyze_mock(post)
         is_rule_stance_ok = (res_rule.stance.value == sample.expected_stance)
@@ -53,7 +51,7 @@ def run_evals():
 
         status_str = '[green]PASS[/green]' if is_llm_stance_ok else '[red]FAIL[/red]'
         sarcasm_str = '[green]PASS[/green]' if is_llm_sarcasm_ok else '[red]FAIL[/red]'
-        
+
         table.add_row(
             str(sample.id),
             sample.text[:22] + '...',

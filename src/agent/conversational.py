@@ -1,8 +1,7 @@
 import os
-import re
 import logging
 from dataclasses import dataclass
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional
 from dotenv import load_dotenv
 from openai import OpenAI
 from src.agent.engine import SentimentArbitrageAgent
@@ -258,7 +257,7 @@ class ConversationalArbitrageAgent:
                 for i, p in enumerate(sarcasm_posts, 1):
                     prob = f" [置信概率: {p.sarcasm_probability:.0%}]" if p.sarcasm_probability else ""
                     lines.append(f"{i}. **原帖语义**：“{p.slang_detected if p.slang_detected else p.reasoning}”\n   ↳ **Jev 消歧分析**：{p.reasoning}{prob}")
-                lines.append(f"\n💡 **专家点评**：这类言论字面上在说‘感谢主力送钱’、‘跌得太好了’，实际是散户被套牢后的破防反语。Jev 非自回归模型将其精准识别并纠正为看空态度。")
+                lines.append("\n💡 **专家点评**：这类言论字面上在说‘感谢主力送钱’、‘跌得太好了’，实际是散户被套牢后的破防反语。Jev 非自回归模型将其精准识别并纠正为看空态度。")
                 return "\n".join(lines)
             else:
                 return (

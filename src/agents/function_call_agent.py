@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 from src.core.agent import Agent
 from src.core.llm import HelloAgentsLLM
 from src.core.message import Message, RoleType
@@ -38,7 +38,7 @@ class FunctionCallAgent(Agent):
 
             if not self.llm.client:
                 # 若未配置真实客户端，进行降级防护
-                return f"[FunctionCallAgent] LLM 客户端未就绪。"
+                return "[FunctionCallAgent] LLM 客户端未就绪。"
 
             # 组装请求参数
             formatted_messages = [m.to_openai_dict() for m in self.get_history()]
@@ -80,7 +80,7 @@ class FunctionCallAgent(Agent):
                     if isinstance(self.tools, ToolRegistry):
                         result = self.tools.execute(function_name, **args)
                     else:
-                        result = f"错误: 未配置工具注册中心"
+                        result = "错误: 未配置工具注册中心"
                 except Exception as e:
                     result = f"工具 {function_name} 执行异常: {str(e)}"
 

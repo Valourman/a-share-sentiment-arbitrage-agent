@@ -1,6 +1,5 @@
 """金融文本结构化分块器单元测试"""
 
-import pytest
 import time
 from src.knowledge.schema import Document, KnowledgeType
 from src.knowledge.chunker import FinancialChunker

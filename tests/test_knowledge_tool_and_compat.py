@@ -1,7 +1,6 @@
 """针对 FinancialKnowledgeTool 与老版本知识库向下兼容性的单元测试"""
 
 from unittest.mock import MagicMock
-import pytest
 from src.knowledge.tools import FinancialKnowledgeTool
 from src.knowledge.hybrid_engine import FinancialRAGKnowledgeBase
 from src.knowledge.schema import Document, KnowledgeType

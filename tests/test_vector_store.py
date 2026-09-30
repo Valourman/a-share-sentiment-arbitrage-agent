@@ -1,11 +1,7 @@
 """向量嵌入与内存向量数据库单元测试"""
 
-import pytest
 from src.knowledge.schema import Chunk
-from src.knowledge.embeddings import (
-    BaseEmbedding,
-    DeterministicHashEmbedding,
-)
+from src.knowledge.embeddings import DeterministicHashEmbedding
 from src.knowledge.vector_store import (
     InMemoryVectorStore,
     cosine_similarity,
@@ -61,7 +57,6 @@ def test_vector_store_indexing_and_search():
     store = InMemoryVectorStore(embedding_model=embedder)
 
     v1 = embedder.embed_query("主力资金大幅流入")
-    v2 = embedder.embed_query("散户恐慌抛售割肉")
 
     chunk1 = Chunk(chunk_id="c1", doc_id="d1", text="主力资金大幅流入", vector=v1, stock_code="600667")
     # chunk2 不预先传入 vector，验证 store 是否能自动生成

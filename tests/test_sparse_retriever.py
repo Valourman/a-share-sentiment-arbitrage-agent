@@ -1,6 +1,5 @@
 """针对 BM25 稀疏关键词检索器的单元测试"""
 
-import pytest
 from src.knowledge.schema import Chunk
 from src.knowledge import BM25Retriever
 

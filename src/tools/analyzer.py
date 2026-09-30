@@ -1,14 +1,12 @@
 import os
 import time
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 import requests
 from dotenv import load_dotenv
-from openai import OpenAI
 from src.core.schema import RawPost, SentimentAnalysisResult, SentimentStance
 from src.core.parser import RobustAgentParser
 from src.core.llm import HelloAgentsLLM
-from src.core.config import global_config
 from src.tools.base import Tool, ToolParameter
 
 load_dotenv()
@@ -34,6 +32,10 @@ class FinancialSentimentAnalyzer(Tool):
     BULLISH_SLANG = ['主升浪', '起飞', '吸筹', '加仓', '地天板', '连板', '牛初', '看多', '反转', '涨停', '抢筹', '突破']
     BEARISH_SLANG = ['吃面', '关灯', '割肉', '出货', '跳水', '跌停', '天地板', '保卫战', '诱多', '套牢', '跌破']
 
+    # 反讽/正话反说模式识别关键词
+    SARCASTIC_PRAISE_WORDS = ('好耶', '太棒了', '感谢主力', '送钱', '良心', '稳得')
+    SARCASTIC_LOSS_WORDS = ('跌', '套', '亏', '面', '跳水', '哭')
+
     def __init__(self, llm: Optional[HelloAgentsLLM] = None):
         super().__init__()
         self.llm = llm or HelloAgentsLLM()
@@ -56,7 +58,7 @@ class FinancialSentimentAnalyzer(Tool):
         return res.model_dump()
 
     def _check_sarcasm(self, text: str):
-        if any(w in text for w in ['好耶', '太棒了', '感谢主力', '送钱', '良心', '稳得']) and any(w in text for w in ['跌', '套', '亏', '面', '跳水', '哭']):
+        if any(w in text for w in self.SARCASTIC_PRAISE_WORDS) and any(w in text for w in self.SARCASTIC_LOSS_WORDS):
             return True, '表扬词与实质亏损下跌词并存，符合反向讽刺模式'
         return False, ''
 

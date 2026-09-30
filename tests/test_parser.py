@@ -2,7 +2,6 @@
 单元测试: RobustAgentParser 容错自愈解析器测试套件
 命名规范: test_<功能>_<场景>_<期望结果>
 """
-import pytest
 from src.core.parser import RobustAgentParser
 from src.core.schema import SentimentAnalysisResult, SentimentStance
 
@@ -45,7 +44,10 @@ def test_parser_markdown_code_block_stripping_succeeds():
 
 def test_parser_raw_text_without_code_block_extracts_outer_curly_brackets():
     """测试没有 markdown 代码块但夹杂在文本中的 json 对象能被正则贪婪提取"""
-    raw_output = '分析结果为: {"stance": "neutral", "sentiment_score": 0.0, "is_sarcasm": false, "slang_detected": [], "reasoning": "纯客观中立公告"} 以上！'
+    raw_output = (
+        '分析结果为: {"stance": "neutral", "sentiment_score": 0.0, '
+        '"is_sarcasm": false, "slang_detected": [], "reasoning": "纯客观中立公告"} 以上！'
+    )
     instance, feedback = RobustAgentParser.parse_or_build_feedback(raw_output, SentimentAnalysisResult)
     assert feedback is None
     assert instance is not None
