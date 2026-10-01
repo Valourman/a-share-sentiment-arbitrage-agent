@@ -103,6 +103,27 @@ streamlit run app.py
 
 在浏览器中即可获得：实时输入标的代码、查看反讽穿透气泡流、多空辩论实时对垒卡片以及动态背离警报仪表盘。
 
+### 4. 获奖级免构建前端交互终端 (Award-Winning Web UI)
+
+系统内置两套达到 Awwwards / Webby / FWA 获奖级水准的高定零构建前端界面，直接通过 Python 内置服务启动：
+
+```bash
+python server.py
+```
+
+在浏览器中访问：
+- **ALPHA-SENSE 旗舰落地页** (`http://localhost:8080/landing.html`)：
+  - **量子引力星云背景**：原生 2D Canvas 物理粒子引力网格，响应窗口与鼠标微动
+  - **5 阶段实况推演舱**：动态追踪感知流采集、Jev 反讽消歧、基本面催化、多空辩论与终审仲裁
+  - **多空激辩竞技场 (Bull vs Bear Arena)**：多头研究员 vs 空头研究员质询对决与动态博弈力矩
+  - **散户反讽穿透光谱 (Sarcasm Spectrum)**：可视化正话反说真实动机与 Noul 概率
+  - **黄金基准评测大盘**：15 条真实黄金语料跨三方引擎横向对比
+  - **极客微交互**：内置 Web Audio API 原生科技音效合成器与 `[⌘K / Ctrl+K]` 快捷指令
+- **Gemini 量子决策大盘** (`http://localhost:8080/index.html`)：
+  - 集成 Magic UI 级 `BorderBeam` 边框激光流光、`NumberTicker` 平滑数字翻牌、市场异动双向跑马灯
+  - 支持深邃暗夜 (Obsidian Dark) 与冰川极简 (Glacier Light) 双主题切换
+  - 提供多智能体思维链推理折叠与结构化交易风控处置指南
+
 ## 快速安装
 
 确保系统已安装 Python 3.10 或更高版本：

@@ -84,7 +84,10 @@ class StockForumScraper(Tool):
         """
         全量最大深度采集东方财富股吧的散户原帖（默认提取该页全量有效样本，去除水军广告）
         """
-        clean_code = re.sub(r"\D", "", stock_code)
+        clean_code = re.sub(r"\D", "", str(stock_code or ""))
+        if not clean_code or len(clean_code) < 5:
+            logger.warning(f"股吧爬取跳过: 非法股票代码输入 [{stock_code!r}]")
+            return []
         url = f"https://guba.eastmoney.com/list,{clean_code}.html"
         try:
             with httpx.Client(timeout=self.timeout, headers=self.DEFAULT_HEADERS) as client:
@@ -144,6 +147,10 @@ class StockForumScraper(Tool):
         """
         多源抓取主流专业财经媒体个股滚动新闻（主力资金、研报评级、行业催化）
         """
+        clean_code = re.sub(r"\D", "", str(stock_code or ""))
+        if not clean_code or len(clean_code) < 5:
+            logger.warning(f"专业资讯爬取跳过: 非法股票代码输入 [{stock_code!r}]")
+            return []
         symbol = self._format_symbol(stock_code)
         url = f"https://vip.stock.finance.sina.com.cn/corp/go.php/vCB_AllNewsStock/symbol/{symbol}.phtml"
         news_list: List[NewsArticle] = []
@@ -160,6 +167,7 @@ class StockForumScraper(Tool):
                             news_list.append(
                                 NewsArticle(
                                     title=title,
+                                    summary=title,  # 新浪新闻列表页标题即包含最核心事件脉络
                                     source="新浪财经/专业媒体",
                                     url=href if href.startswith("http") else f"https:{href}" if href.startswith("//") else href,
                                 )
@@ -173,7 +181,10 @@ class StockForumScraper(Tool):
         """
         抓取上市公司官方披露公告（财报年报、重大事项、重组、定增）
         """
-        clean_code = re.sub(r"\D", "", stock_code)
+        clean_code = re.sub(r"\D", "", str(stock_code or ""))
+        if not clean_code or len(clean_code) < 5:
+            logger.warning(f"官方披露爬取跳过: 非法股票代码输入 [{stock_code!r}]")
+            return []
         url = f"https://vip.stock.finance.sina.com.cn/corp/go.php/vCB_Bulletin/stockid/{clean_code}/page_type/ndbg.phtml"
         ann_list: List[AnnouncementItem] = []
         try:
@@ -186,9 +197,21 @@ class StockForumScraper(Tool):
                         title = elem.get_text(strip=True)
                         href = elem.get("href", "")
                         if title:
+                            # 自动归类公告类别
+                            category = "官方披露"
+                            if any(k in title for k in ("报告", "年报", "半年报", "季报")):
+                                category = "定期财报"
+                            elif any(k in title for k in ("合同", "中标", "签约", "大单")):
+                                category = "重大经营"
+                            elif any(k in title for k in ("重组", "增持", "回购", "激励")):
+                                category = "资本运作"
+                            elif any(k in title for k in ("减持", "问询", "立案", "违规", "警示", "退市")):
+                                category = "合规警示"
+
                             ann_list.append(
                                 AnnouncementItem(
                                     title=title,
+                                    category=category,
                                     url=href if href.startswith("http") else f"https:{href}" if href.startswith("//") else href,
                                 )
                             )

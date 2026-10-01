@@ -1,4 +1,5 @@
 import html
+from urllib.parse import urlparse
 import streamlit as st
 import re
 import textwrap
@@ -8,12 +9,26 @@ from src.agent.state import AgentState, DivergenceType
 from src.agent.decision import has_valid_market_snapshot
 from src.core.config import AgentConfig, global_config
 from src.core.llm import HelloAgentsLLM
+from src.tools.stock_resolver import StockResolver
 
 
 def esc(value) -> str:
     """HTML 转义外部文本（股吧帖子、新闻/公告标题、行情接口返回值等均为
     任何人可发布的第三方内容），防止注入 unsafe_allow_html 的存储型 XSS"""
     return html.escape(str(value if value is not None else ""), quote=True)
+
+
+def safe_href(url: str) -> str:
+    """校验外部链接的协议方案（Scheme），仅放行 http/https，防御 javascript: 等伪协议 XSS 注入"""
+    if not url:
+        return ""
+    try:
+        parsed = urlparse(str(url).strip())
+        if parsed.scheme.lower() in ("http", "https"):
+            return esc(url.strip())
+    except Exception:
+        pass
+    return ""
 
 # ============================================================
 # 1. 页面基础配置 (Gemini 沉浸式风格)
@@ -520,6 +535,8 @@ if "settings" not in st.session_state:
 def run_configured_agent(stock_code: str):
     """根据当前会话动态设置构造 LLM 与 Agent 并执行研判，附带实时动态进度条"""
     st.session_state.current_stock = stock_code
+    # 状态隔离：研判前先清空活跃状态，防止异常失败时残留前一标的数据造成界面混淆
+    st.session_state.active_state = None
     settings = st.session_state.settings
     config = AgentConfig(
         openai_api_key=settings["api_key"].strip() if settings["api_key"].strip() else None,
@@ -673,6 +690,7 @@ with st.sidebar:
                     "use_llm": use_llm,
                     "workflow_mode": workflow_mode,
                 })
+                st.session_state.chat_agent = None  # 配置变更后重新初始化对话智能体
                 st.success("配置已更新生效")
                 st.rerun()
         with c2:
@@ -687,6 +705,7 @@ with st.sidebar:
                     "workflow_mode": True,
                     "timeout_seconds": float(global_config.timeout_seconds if global_config.timeout_seconds is not None else 30.0),
                 }
+                st.session_state.chat_agent = None  # 恢复默认后重新初始化对话智能体
                 st.rerun()
 
     st.markdown("<div style='font-size: 0.72rem; color: #9CA3AF; font-weight: 600; text-transform: uppercase; margin: 1rem 0 0.5rem 0.25rem;'>快速切换标的</div>", unsafe_allow_html=True)
@@ -749,8 +768,12 @@ if st.session_state.app_mode == "📊 标的研判":
     user_input = st.chat_input("输入 6 位 A 股股票代码 (如 600667, 600584) 启动多源全景智能研判...")
 
     if user_input:
-        code_match = re.search(r"\b(\d{6})\b", user_input)
-        target_code = code_match.group(1) if code_match else user_input.strip()
+        resolved = StockResolver.resolve_from_text(user_input)
+        if resolved:
+            target_code = resolved[0]
+        else:
+            code_match = re.search(r"(?<!\d)(\d{6})(?!\d)", user_input)
+            target_code = code_match.group(1) if code_match else user_input.strip()
 
         with st.spinner(f"Agent 正在多方位全量采集 [{target_code}] 股吧、新闻与盘面，并启动大模型多步反思..."):
             try:
@@ -777,7 +800,20 @@ if st.session_state.app_mode == "💬 对话问答":
 
     if st.session_state.chat_agent is None:
         with st.spinner("正在初始化对话式智能体 (System 1 + System 2 双脑架构)..."):
-            st.session_state.chat_agent = ConversationalArbitrageAgent()
+            settings = st.session_state.settings
+            chat_config = AgentConfig(
+                openai_api_key=settings["api_key"].strip() if settings["api_key"].strip() else None,
+                openai_base_url=settings["base_url"].strip() if settings["base_url"].strip() else None,
+                default_model=settings["model_name"].strip() if settings["model_name"].strip() else "gpt-4o-mini",
+                temperature=float(settings["temperature"]),
+                timeout_seconds=float(settings["timeout_seconds"]),
+            )
+            chat_llm = HelloAgentsLLM(config=chat_config)
+            chat_underlying = SentimentArbitrageAgent(llm=chat_llm)
+            st.session_state.chat_agent = ConversationalArbitrageAgent(
+                underlying_agent=chat_underlying,
+                llm=chat_llm,
+            )
     chat_agent = st.session_state.chat_agent
 
     # 历史消息回放
@@ -912,8 +948,8 @@ else:
     # 背离研判雷达警报卡片
     ref = state.reflection
     if ref:
-        div_label = getattr(ref.divergence_type, "value", str(ref.divergence_type))
-        risk_label = getattr(ref.risk_level, "value", str(ref.risk_level))
+        div_label = esc(getattr(ref.divergence_type, "value", str(ref.divergence_type)))
+        risk_label = esc(getattr(ref.risk_level, "value", str(ref.risk_level)))
         is_div = ref.is_divergent
         is_unknown = ref.divergence_type == DivergenceType.INSUFFICIENT_DATA
         radar_class = "radar-banner divergent" if is_div else "radar-banner"
@@ -1118,7 +1154,8 @@ else:
     with tab_news:
         if state.news_list:
             for n_idx, news in enumerate(state.news_list):
-                link_html = f'<a href="{esc(news.url)}" target="_blank" rel="noopener noreferrer" style="color: #1A73E8; text-decoration: none; font-size: 0.8rem; margin-left: 0.5rem;">查看原文 ↗</a>' if news.url else ''
+                news_href = safe_href(news.url)
+                link_html = f'<a href="{news_href}" target="_blank" rel="noopener noreferrer" style="color: #1A73E8; text-decoration: none; font-size: 0.8rem; margin-left: 0.5rem;">查看原文 ↗</a>' if news_href else ''
                 news_card_html = f"""
                 <div class="info-card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
@@ -1139,7 +1176,8 @@ else:
     with tab_ann:
         if state.announcements:
             for a_idx, ann in enumerate(state.announcements):
-                link_html = f'<a href="{esc(ann.url)}" target="_blank" rel="noopener noreferrer" style="color: #1A73E8; text-decoration: none; font-size: 0.8rem; margin-left: 0.5rem;">官方查阅 ↗</a>' if ann.url else ''
+                ann_href = safe_href(ann.url)
+                link_html = f'<a href="{ann_href}" target="_blank" rel="noopener noreferrer" style="color: #1A73E8; text-decoration: none; font-size: 0.8rem; margin-left: 0.5rem;">官方查阅 ↗</a>' if ann_href else ''
                 ann_card_html = f"""
                 <div class="info-card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">

@@ -75,6 +75,11 @@ class HelloAgentsLLM:
         """检查底层 LLM 客户端与凭证是否就绪"""
         return self.client is not None
 
+    @property
+    def model_name(self) -> str:
+        """获取当前配置的主模型名称"""
+        return self.config.default_model
+
     def _format_messages(
         self, messages: List[Union[Message, Dict[str, Any]]]
     ) -> List[Dict[str, Any]]:

@@ -19,13 +19,18 @@ class RobustAgentParser:
         if not text:
             return ""
 
+        stripped = text.strip()
+        # 策略 0: 若原始文本本身已完整闭合，直接返回避免多余正则开销
+        if (stripped.startswith("{") and stripped.endswith("}")) or (stripped.startswith("[") and stripped.endswith("]")):
+            return stripped
+
         # 策略 1: 优先提取 Markdown ```json ... ``` 或 ``` ... ``` 代码块内部文本
         code_block = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
         if code_block:
             return code_block.group(1).strip()
 
-        # 策略 2: 提取文本中首个大括号到最外层闭合大括号之间的内容
-        json_obj = re.search(r"(\{[\s\S]*\})", text)
+        # 策略 2: 提取文本中最外层闭合结构（优先匹配 JSON 顶层对象 {...}，兼顾顶层数组 [...]）
+        json_obj = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", text)
         if json_obj:
             return json_obj.group(1).strip()
 
@@ -41,9 +46,10 @@ class RobustAgentParser:
         # 步骤 1: 容错清理与正则提取
         cleaned = cls._extract_json_candidate(raw_llm_output)
 
-        # 步骤 2: 基础语法检查
+        # 步骤 2: 基础语法检查（清洗尾随逗号并允许字面量控制字符）
         try:
-            data = json.loads(cleaned)
+            cleaned_str = re.sub(r",\s*([\]}])", r"\1", cleaned)
+            data = json.loads(cleaned_str, strict=False)
         except json.JSONDecodeError as e:
             return None, (
                 f"JSON 语法解析失败: {str(e)}。\n"

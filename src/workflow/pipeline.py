@@ -126,7 +126,12 @@ class FinancialWorkflowPipeline:
         state.news_list = news
         state.announcements = announcements
         state.market_data = market_snap
-        state.stock_name = market_snap.stock_name
+        if market_snap and market_snap.stock_name and market_snap.stock_name != "未识别标的":
+            state.stock_name = market_snap.stock_name
+        elif not state.stock_name or state.stock_name == "未识别标的":
+            from src.tools.stock_resolver import StockResolver
+            resolved_name = StockResolver.search_name_by_code(stock_code)
+            state.stock_name = resolved_name or (market_snap.stock_name if market_snap else None) or f"标的 {stock_code}"
         state.sentiment_sample_count = len(posts)
 
         now_str = datetime.now().strftime("%H:%M:%S")

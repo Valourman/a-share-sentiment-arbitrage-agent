@@ -211,24 +211,42 @@ class SentimentArbitrageAgent(ReflectionAgent):
             )
         return state
 
-    def run(self, stock_code: str, max_posts: int = 30, use_llm: bool = True, **kwargs: Any) -> AgentState:
+    def run(
+        self,
+        input_text: str = "",
+        stock_code: Optional[str] = None,
+        max_posts: int = 30,
+        use_llm: bool = True,
+        **kwargs: Any,
+    ) -> AgentState:
         """
         启动多源交叉金融研判 Agent 任务
         融合 Hello Agents 经典反思范式与现代化多智能体博弈辩论：
+        - 兼容基类 Agent 标准多态入参 (input_text) 与领域代码 (stock_code)；
         - 默认模式：执行 execute_initial -> evaluate_critique -> reflect_and_refine 4阶段反思闭环，
                     并自动附带基本面催化剂挖掘与多空多智能体辩论 (Bull vs Bear Debate)；
         - workflow_mode=True: 切换为纯并发流水线编排器 (FinancialWorkflowPipeline)。
         """
+        # 参数标准化：优先使用显式传递的 stock_code，缺省时由 input_text 解析
+        target_code = stock_code or input_text
+        if target_code and not target_code.isdigit():
+            from src.tools.stock_resolver import StockResolver
+            match = StockResolver.resolve_from_text(target_code)
+            if match:
+                target_code = match[0]
+
+        target_code = str(target_code or "600519").strip()
         workflow_mode: bool = kwargs.get("workflow_mode", False)
         progress_callback: Optional[Callable[[float, str], None]] = kwargs.get("progress_callback")
 
-        # 每次研判重置链路追踪器，避免跨任务累计
+        # 每次单次研判任务清空历史消息与重置追踪器，防止长驻进程上下文无界膨胀与内存泄漏
+        self.clear_history()
         self.tracer = AgentTracer()
-        self.add_message(Message.user(f"研判标的股票代码: {stock_code}"))
+        self.add_message(Message.user(f"研判标的股票代码: {target_code}"))
 
         if workflow_mode:
             final_state = self.pipeline.run(
-                stock_code=stock_code,
+                stock_code=target_code,
                 max_posts=max_posts,
                 use_llm=use_llm,
                 engine_mode=kwargs.get("engine_mode"),
@@ -236,11 +254,11 @@ class SentimentArbitrageAgent(ReflectionAgent):
                 tracer=self.tracer,
             )
         else:
-            state = self.execute_initial(stock_code, max_posts=max_posts, use_llm=use_llm, **kwargs)
+            state = self.execute_initial(target_code, max_posts=max_posts, use_llm=use_llm, **kwargs)
             critique = self.evaluate_critique(state, **kwargs)
             final_state = self.reflect_and_refine(state, critique, **kwargs)
 
-        self.add_message(Message.assistant(f"完成标的 [{stock_code}] 研判报告"))
+        self.add_message(Message.assistant(f"完成标的 [{target_code}] 研判报告"))
 
         # 链路追踪汇总写入审计日志
         trace_summary = self.tracer.get_summary()
@@ -250,5 +268,5 @@ class SentimentArbitrageAgent(ReflectionAgent):
             f"累计耗时 {trace_summary['total_latency_seconds']}s{failed_hint}"
         )
         if progress_callback:
-            progress_callback(1.0, f"研判完成，已生成标的 [{stock_code}] 决策报告")
+            progress_callback(1.0, f"研判完成，已生成标的 [{target_code}] 决策报告")
         return final_state

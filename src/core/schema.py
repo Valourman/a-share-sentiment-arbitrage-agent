@@ -22,6 +22,7 @@ class RawPost(BaseModel):
 class NewsArticle(BaseModel):
     """新浪/财联社等主流专业财经新闻资讯模型"""
     title: str = Field(description="资讯标题")
+    summary: Optional[str] = Field(default="", description="新闻摘要或前言")
     source: str = Field(default="新浪财经", description="新闻来源媒体")
     publish_time: Optional[str] = Field(default=None, description="发布时间")
     url: Optional[str] = Field(default=None, description="资讯链接")
@@ -30,8 +31,20 @@ class NewsArticle(BaseModel):
 class AnnouncementItem(BaseModel):
     """上市公司官方披露公告模型"""
     title: str = Field(description="公告标题")
+    category: Optional[str] = Field(default="官方披露", description="公告类别")
     publish_time: Optional[str] = Field(default=None, description="披露时间")
     url: Optional[str] = Field(default=None, description="公告链接")
+
+
+class MarketSnapshot(BaseModel):
+    """客观盘面快照数据契约"""
+    stock_code: str = Field(description="6位股票代码")
+    stock_name: str = Field(description="股票名称")
+    current_price: float = Field(description="当前现价")
+    pre_close: float = Field(description="昨日收盘价")
+    change_percent: float = Field(description="今日涨跌幅百分比")
+    turnover_amount_yi: float = Field(description="今日成交金额(亿元)")
+    is_trading: bool = Field(default=True, description="是否处于交易状态")
 
 
 class SentimentAnalysisResult(BaseModel):
