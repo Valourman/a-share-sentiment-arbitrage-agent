@@ -2,889 +2,2163 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ALPHA-SENSE · A股散户舆情与盘面背离双脑套利智能终端</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ALPHA-SENSE · A股多源舆情反讽研判与量价背离预警智能终端</title>
+    <!-- 引入 Awwwards 级高定设计字体 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
     <style>
         :root {
-            --bg-abyss: #06080F;
-            --surface-card: #0D1322;
-            --surface-elevated: #131B30;
-            --border-subtle: #1E293B;
-            --border-glow: rgba(99, 102, 241, 0.25);
-            --accent-rose: #F43F5E;
-            --accent-emerald: #10B981;
+            /* 获奖级暗夜色彩系统 (Deep Cosmic Obsidian) */
+            --bg-void: #030509;
+            --bg-abyss: #060913;
+            --surface-glass: rgba(10, 15, 30, 0.75);
+            --surface-glass-heavy: rgba(8, 13, 26, 0.92);
+            --surface-card: #0A1020;
+            --surface-elevated: #111A33;
+            --surface-hover: #162244;
+
+            /* 边框与微光 */
+            --border-subtle: rgba(255, 255, 255, 0.07);
+            --border-highlight: rgba(99, 102, 241, 0.35);
+            --border-glow: rgba(168, 85, 247, 0.4);
+
+            /* 高定渐变光效色彩 */
             --accent-indigo: #6366F1;
             --accent-purple: #A855F7;
-            --accent-cyan: #38BDF8;
-            --text-primary: #F8FAFC;
+            --accent-cyan: #06B6D4;
+            --accent-blue: #3B82F6;
+            --accent-amber: #F59E0B;
+
+            /* 金融量化本土化色谱 (经过深色调优的高级荧光质感，非刺目原色) */
+            --quant-bull: #F43F5E; /* A股看涨 / 亢奋红 */
+            --quant-bull-glow: rgba(244, 63, 94, 0.25);
+            --quant-bear: #10B981; /* A股看跌 / 恐慌绿 */
+            --quant-bear-glow: rgba(16, 185, 129, 0.25);
+            --quant-gold: #FBBF24;
+
+            /* 排版色阶 */
+            --text-pure: #FFFFFF;
+            --text-lead: #F1F5F9;
             --text-secondary: #94A3B8;
             --text-muted: #64748B;
-            --font-sans: 'Plus Jakarta Sans', -apple-system, "PingFang SC", "Noto Sans SC", sans-serif;
-            --font-mono: 'JetBrains Mono', SFMono-Regular, monospace;
+            --text-dim: #475569;
+
+            /* 字体族定义 */
+            --font-display: 'Syne', sans-serif;
+            --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-mono: 'JetBrains Mono', SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+            /* 阻尼物理缓动 */
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-in-out-smooth: cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            font-size: 16px;
+            background-color: var(--bg-void);
+            color: var(--text-lead);
         }
 
         body {
-            background-color: var(--bg-abyss);
-            color: var(--text-primary);
             font-family: var(--font-sans);
-            line-height: 1.5;
-            overflow-x: hidden;
+            line-height: 1.55;
+            overflow-x: clip;
             -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            position: relative;
+            background-color: var(--bg-void);
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 50%),
+                radial-gradient(circle at 10% 30%, rgba(168, 85, 247, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 60%, rgba(6, 182, 212, 0.06) 0%, transparent 40%);
         }
 
-        /* 顶部全局状态律动栏 */
-        .system-ticker {
-            background: rgba(13, 19, 34, 0.95);
-            backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--border-subtle);
-            font-family: var(--font-mono);
-            font-size: 11px;
-            padding: 6px 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        /* 胶片噪点质感层 (Film Grain Texture Overlay) */
+        .noise-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0.035;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        /* 原生 2D 互动量子神经背景画布 */
+        #quantumCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.65;
+        }
+
+        /* 滚动条奢华隐匿 */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(99, 102, 241, 0.4);
+        }
+
+        /* 顶级全景网格布局约束 */
+        .main-wrapper {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 clamp(16px, 3.5vw, 48px);
+        }
+
+        /* 顶部全局状态律动栏 (Dynamic Status HUD) */
+        .status-hud {
             position: sticky;
             top: 0;
             z-index: 100;
-            white-space: nowrap;
-            overflow-x: auto;
-        }
-
-        .ticker-group {
+            background: rgba(4, 7, 15, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-subtle);
+            padding: 8px clamp(16px, 3.5vw, 48px);
             display: flex;
-            gap: 14px;
+            justify-content: space-between;
             align-items: center;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            letter-spacing: 0.04em;
         }
 
+        .status-left, .status-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .pulse-beacon {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            color: var(--quant-bear);
+            font-weight: 600;
+        }
         .pulse-dot {
             width: 7px;
             height: 7px;
             border-radius: 50%;
-            background: var(--accent-emerald);
-            display: inline-block;
-            box-shadow: 0 0 8px var(--accent-emerald);
-            animation: pulse 2s infinite;
+            background: var(--quant-bear);
+            box-shadow: 0 0 10px var(--quant-bear);
+            animation: pulseGlow 2.2s infinite ease-in-out;
         }
-
-        @keyframes pulse {
+        @keyframes pulseGlow {
             0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.4; transform: scale(0.85); }
+            50% { opacity: 0.4; transform: scale(0.8); }
         }
 
-        .stat-badge {
-            color: var(--text-secondary);
+        .hud-metric {
+            color: var(--text-muted);
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
         }
-        .stat-badge span {
-            color: var(--text-cyan);
+        .hud-metric strong {
+            color: var(--accent-cyan);
             font-weight: 600;
         }
 
-        .container {
-            max-width: 1360px;
-            margin: 0 auto;
-            padding: 0 16px;
+        .hud-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+        .hud-link:hover {
+            color: var(--text-pure);
+            border-color: var(--accent-indigo);
+            background: rgba(99, 102, 241, 0.12);
         }
 
-        /* 精致导航头 */
-        header {
-            padding: 20px 0 16px;
+        /* 顶部导航 (Nav Bar) */
+        nav {
+            padding: 24px 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid rgba(255,255,255,0.04);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
         }
 
-        .brand {
+        .brand-cluster {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 14px;
             text-decoration: none;
         }
 
-        .brand-logo {
-            width: 30px;
-            height: 30px;
-            background: linear-gradient(135deg, var(--accent-indigo), var(--accent-purple));
-            border-radius: 6px;
+        .brand-badge {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #4F46E5 0%, #9333EA 50%, #06B6D4 100%);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-family: var(--font-mono);
+            font-family: var(--font-display);
+            font-size: 20px;
             font-weight: 800;
-            font-size: 15px;
             color: #fff;
-            box-shadow: 0 3px 12px rgba(99, 102, 241, 0.4);
+            box-shadow: 0 0 24px rgba(99, 102, 241, 0.45);
+            position: relative;
+            overflow: hidden;
+        }
+        .brand-badge::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.4) 50%, transparent 60%);
+            animation: badgeShine 4s infinite linear;
+        }
+        @keyframes badgeShine {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
         }
 
-        .brand-text h1 {
-            font-size: 15px;
-            font-weight: 700;
-            letter-spacing: -0.4px;
-            color: var(--text-primary);
+        .brand-info h1 {
+            font-family: var(--font-display);
+            font-size: 17px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: var(--text-pure);
             line-height: 1.2;
         }
-
-        .brand-text p {
+        .brand-info p {
+            font-family: var(--font-mono);
             font-size: 10.5px;
             color: var(--text-muted);
-            font-family: var(--font-mono);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
         }
 
-        .header-actions {
+        .nav-actions {
             display: flex;
-            gap: 8px;
+            align-items: center;
+            gap: 12px;
         }
 
-        .btn {
+        /* 按钮与交互徽章 */
+        .btn-press {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 11.5px;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 9999px;
+            font-size: 12.5px;
             font-weight: 600;
-            cursor: pointer;
             text-decoration: none;
-            transition: all 0.2s ease;
+            cursor: pointer;
+            transition: all 0.25s var(--ease-out-expo);
             border: 1px solid transparent;
+            font-family: var(--font-sans);
+            position: relative;
+            user-select: none;
+        }
+        .btn-press:active {
+            transform: scale(0.97);
         }
 
-        .btn-outline {
-            background: transparent;
+        .btn-glass {
+            background: rgba(255, 255, 255, 0.04);
             border-color: var(--border-subtle);
             color: var(--text-secondary);
         }
-        .btn-outline:hover {
-            border-color: var(--accent-indigo);
-            color: var(--text-primary);
+        .btn-glass:hover {
+            color: var(--text-pure);
+            border-color: rgba(99, 102, 241, 0.4);
             background: rgba(99, 102, 241, 0.08);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
         }
 
-        .btn-primary {
-            background: linear-gradient(135deg, var(--accent-indigo), var(--accent-purple));
-            color: #fff;
-            box-shadow: 0 2px 10px rgba(99, 102, 241, 0.35);
+        .btn-gradient {
+            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+            color: #ffffff;
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.35);
         }
-        .btn-primary:hover {
-            opacity: 0.92;
+        .btn-gradient:hover {
+            box-shadow: 0 6px 28px rgba(99, 102, 241, 0.55);
             transform: translateY(-1px);
         }
 
+        .kbd-pill {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-secondary);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
         /* Hero 核心区域 */
-        .hero {
-            padding: 16px 0 28px;
+        .hero-section {
+            padding: clamp(36px, 6vw, 72px) 0 clamp(24px, 4vw, 48px);
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: clamp(24px, 4vw, 40px);
         }
 
-        .hero-lead {
+        .hero-lead-box {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            align-items: flex-start;
+            gap: 16px;
+            max-width: 980px;
         }
 
-        .hero-pill {
+        .eyebrow-pill {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 3px 10px;
-            background: rgba(99, 102, 241, 0.12);
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            border-radius: 999px;
-            width: fit-content;
-            font-size: 11px;
-            color: var(--accent-cyan);
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 9999px;
+            background: rgba(99, 102, 241, 0.08);
+            border: 1px solid rgba(99, 102, 241, 0.25);
             font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--accent-cyan);
+            backdrop-filter: blur(8px);
+            box-shadow: 0 0 16px rgba(99, 102, 241, 0.1);
+        }
+        .eyebrow-pulse {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            animation: pulseGlow 1.8s infinite;
         }
 
-        .hero-title {
-            font-size: 26px;
-            line-height: 1.25;
+        .hero-headline {
+            font-family: var(--font-display);
+            font-size: clamp(32px, 5.2vw, 68px);
             font-weight: 800;
-            letter-spacing: -0.6px;
-            color: var(--text-primary);
+            line-height: 1.08;
+            letter-spacing: -0.04em;
+            color: var(--text-pure);
         }
-
-        .hero-title .gradient-text {
-            background: linear-gradient(135deg, #FFF 20%, #A855F7 70%, #6366F1 100%);
+        .text-shimmer {
+            background: linear-gradient(135deg, #FFFFFF 15%, #C084FC 50%, #6366F1 80%, #38BDF8 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            display: inline-block;
         }
 
-        .hero-desc {
-            font-size: 13px;
+        .hero-abstract {
+            font-size: clamp(14px, 1.25vw, 17px);
             color: var(--text-secondary);
-            line-height: 1.55;
-            max-width: 860px;
+            line-height: 1.65;
+            max-width: 820px;
         }
 
-        .hero-chips {
+        /* 标的快捷交互矩阵 (Chip Selector) */
+        .chip-matrix {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 2px;
+            gap: 10px;
+            padding: 6px 0;
         }
 
-        .chip-btn {
-            background: var(--surface-card);
-            border: 1px solid var(--border-subtle);
-            color: var(--text-secondary);
-            padding: 6px 11px;
-            border-radius: 6px;
-            font-size: 11.5px;
-            font-family: var(--font-mono);
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .chip-btn:hover {
-            border-color: var(--accent-indigo);
-            color: var(--accent-cyan);
-            background: var(--surface-elevated);
-        }
-
-        /* 终端舞台 Live Interactive Terminal - 自然展开，彻底消灭双重滚动条 */
-        .terminal-stage {
+        .target-chip {
             background: var(--surface-card);
             border: 1px solid var(--border-subtle);
             border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+            padding: 8px 14px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.25s var(--ease-out-expo);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            user-select: none;
+        }
+        .target-chip:hover {
+            border-color: var(--accent-indigo);
+            background: var(--surface-elevated);
+            color: var(--text-pure);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.2);
+        }
+        .target-chip.active {
+            border-color: var(--accent-cyan);
+            background: rgba(6, 182, 212, 0.1);
+            color: #ffffff;
+            box-shadow: 0 0 16px rgba(6, 182, 212, 0.25);
+        }
+        .chip-indicator {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
         }
 
-        .terminal-header {
-            background: #090E1A;
-            padding: 8px 14px;
+        /* ============================================================ */
+        /* 获奖级全能交互控制台 (QUANTUM COMMAND COCKPIT) */
+        /* ============================================================ */
+        .cockpit-container {
+            position: relative;
+            background: var(--surface-glass);
+            backdrop-filter: blur(28px);
+            -webkit-backdrop-filter: blur(28px);
+            border: 1px solid var(--border-subtle);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
+            transition: transform 0.2s var(--ease-out-expo), box-shadow 0.2s;
+        }
+
+        /* 3D 聚光灯流光跟随 */
+        .cockpit-spotlight {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: radial-gradient(800px circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(99, 102, 241, 0.09), transparent 40%);
+            z-index: 1;
+        }
+
+        /* 魔法边框流光 (Border Beam) */
+        .beam-track {
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            padding: 1.5px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.6), rgba(168, 85, 247, 0.6), transparent 60%);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        /* 终端视窗顶栏 */
+        .cockpit-header {
+            background: rgba(5, 8, 17, 0.95);
             border-bottom: 1px solid var(--border-subtle);
+            padding: 12px 18px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: relative;
+            z-index: 3;
         }
 
-        .window-controls {
+        .window-ctrls {
             display: flex;
-            gap: 5px;
+            gap: 7px;
+            align-items: center;
         }
-        .ctrl-dot {
-            width: 8px;
-            height: 8px;
+        .ctrl-pill {
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
         }
         .ctrl-red { background: #FF5F56; }
         .ctrl-yellow { background: #FFBD2E; }
         .ctrl-green { background: #27C93F; }
 
-        .terminal-title {
+        .cockpit-tabs {
+            display: flex;
+            gap: 4px;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 3px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        .tab-btn {
             font-family: var(--font-mono);
-            font-size: 11px;
+            font-size: 11.5px;
+            padding: 4px 12px;
+            border-radius: 6px;
             color: var(--text-muted);
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .tab-btn.active {
+            background: rgba(99, 102, 241, 0.2);
+            color: #fff;
+            font-weight: 600;
         }
 
-        .terminal-body {
-            padding: 14px;
-            font-family: var(--font-mono);
-            font-size: 12px;
+        /* 终端核心控制区 */
+        .cockpit-body {
+            position: relative;
+            z-index: 3;
+            padding: clamp(16px, 2.5vw, 24px);
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 20px;
         }
 
-        .terminal-input-bar {
-            display: flex;
+        /* 5阶段工作流进度条 (Workflow Stage Tracker) */
+        .pipeline-tracker {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
             gap: 8px;
-            background: #090E1A;
+            background: rgba(4, 7, 16, 0.6);
+            padding: 10px 14px;
+            border-radius: 12px;
             border: 1px solid var(--border-subtle);
-            border-radius: 6px;
-            padding: 6px 10px;
+        }
+        .stage-step {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            position: relative;
+        }
+        .stage-step::after {
+            content: '';
+            position: absolute;
+            right: -4px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
+        }
+        .stage-step:last-child::after { display: none; }
+        .stage-label {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .stage-name {
+            font-size: 11.5px;
+            font-weight: 600;
+            color: var(--text-dim);
+            transition: color 0.3s;
+            display: flex;
             align-items: center;
+            gap: 5px;
+        }
+        .stage-step.active .stage-name {
+            color: var(--accent-cyan);
+        }
+        .stage-step.completed .stage-name {
+            color: var(--quant-bear);
+        }
+        .stage-bar {
+            height: 3px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            overflow: hidden;
+            margin-top: 2px;
+        }
+        .stage-progress {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--accent-indigo), var(--accent-cyan));
+            transition: width 0.4s ease;
+        }
+        .stage-step.active .stage-progress { width: 100%; animation: barPulse 1.2s infinite alternate; }
+        .stage-step.completed .stage-progress { width: 100%; background: var(--quant-bear); }
+        @keyframes barPulse {
+            0% { opacity: 0.6; }
+            100% { opacity: 1; }
         }
 
-        .prompt-symbol {
-            color: var(--accent-indigo);
+        /* 交互输入胶囊舱 (Search & Command Input) */
+        .cmd-input-bar {
+            display: flex;
+            gap: 10px;
+            background: rgba(4, 7, 16, 0.8);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 8px 12px;
+            align-items: center;
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
+            transition: border-color 0.25s;
+        }
+        .cmd-input-bar:focus-within {
+            border-color: var(--accent-indigo);
+            box-shadow: 0 0 16px rgba(99, 102, 241, 0.25);
+        }
+        .prompt-tag {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--accent-cyan);
             font-weight: 700;
         }
-
-        .terminal-input {
+        .cmd-input {
             flex: 1;
             background: transparent;
             border: none;
             outline: none;
-            color: var(--text-primary);
+            color: var(--text-pure);
             font-family: var(--font-mono);
-            font-size: 12px;
+            font-size: 13px;
         }
-
-        .terminal-btn {
-            background: var(--accent-indigo);
+        .cmd-input::placeholder {
+            color: var(--text-dim);
+        }
+        .cmd-btn {
+            background: linear-gradient(135deg, var(--accent-indigo), var(--accent-purple));
             color: #fff;
             border: none;
-            border-radius: 4px;
-            padding: 5px 10px;
-            font-size: 11px;
-            cursor: pointer;
-            font-family: var(--font-sans);
+            border-radius: 8px;
+            padding: 6px 14px;
+            font-size: 12px;
             font-weight: 600;
-        }
-
-        /* 终端日志流：自然扩展，无需滚动框 */
-        .terminal-output {
-            display: flex;
-            flex-direction: column;
+            font-family: var(--font-sans);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
             gap: 6px;
         }
-
-        .log-row {
-            line-height: 1.45;
-            word-break: break-word;
+        .cmd-btn:hover {
+            box-shadow: 0 0 16px rgba(99, 102, 241, 0.4);
+            transform: translateY(-1px);
         }
-        .log-dim { color: var(--text-muted); }
-        .log-cyan { color: var(--text-cyan); }
-        .log-purple { color: var(--accent-purple); }
-        .log-green { color: var(--accent-emerald); }
-        .log-red { color: var(--accent-rose); }
-        .log-yellow { color: #FBBF24; }
 
-        /* 研判结果卡：完整、醒目、通透呈现 */
-        .card-result {
-            background: #101626;
-            border: 1px solid rgba(99, 102, 241, 0.25);
+        /* 盘面行情 4 联实时芯片 (Market Metrics Strip) */
+        .market-chips-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+        .metric-chip-card {
+            background: rgba(7, 11, 23, 0.7);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
+        .metric-chip-card:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+            background: rgba(12, 18, 36, 0.8);
+        }
+        .metric-label {
+            font-family: var(--font-mono);
+            font-size: 10.5px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+        .metric-value {
+            font-family: var(--font-mono);
+            font-size: 19px;
+            font-weight: 700;
+            color: var(--text-pure);
+            line-height: 1.2;
+        }
+        .metric-sub {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-dim);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* ============================================================ */
+        /* 终审裁决展示区 (ARBITRAGE VERDICT BANNER) */
+        /* ============================================================ */
+        .verdict-showcase {
+            border-radius: 14px;
+            padding: 18px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid transparent;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.4s var(--ease-out-expo);
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .verdict-danger {
+            background: linear-gradient(135deg, rgba(244, 63, 94, 0.12) 0%, rgba(13, 19, 36, 0.9) 60%);
+            border-color: rgba(244, 63, 94, 0.35);
+        }
+        .verdict-success {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(13, 19, 36, 0.9) 60%);
+            border-color: rgba(16, 185, 129, 0.35);
+        }
+        .verdict-warning {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(13, 19, 36, 0.9) 60%);
+            border-color: rgba(245, 158, 11, 0.35);
+        }
+
+        .verdict-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .verdict-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+        .verdict-badge {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 999px;
+            text-transform: uppercase;
+        }
+        .badge-danger { background: rgba(244, 63, 94, 0.2); color: #FDA4AF; border: 1px solid rgba(244, 63, 94, 0.4); }
+        .badge-success { background: rgba(16, 185, 129, 0.2); color: #6EE7B7; border: 1px solid rgba(16, 185, 129, 0.4); }
+        .badge-warning { background: rgba(245, 158, 11, 0.2); color: #FCD34D; border: 1px solid rgba(245, 158, 11, 0.4); }
+
+        .verdict-narrative {
+            background: rgba(0, 0, 0, 0.35);
+            border-radius: 10px;
+            padding: 14px 16px;
+            font-size: 13px;
+            color: var(--text-lead);
+            line-height: 1.65;
+            border-left: 3px solid var(--accent-indigo);
+        }
+
+        .verdict-action {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 12.5px;
+            color: var(--text-secondary);
+            padding: 10px 14px;
+            background: rgba(255, 255, 255, 0.03);
             border-radius: 8px;
-            padding: 12px 14px;
-            margin-top: 8px;
+        }
+
+        /* ============================================================ */
+        /* 多空对抗激辩剧场 (BULL VS BEAR DEBATE ARENA) */
+        /* ============================================================ */
+        .debate-arena-box {
+            display: grid;
+            grid-template-columns: 1fr 120px 1fr;
+            gap: 16px;
+            align-items: center;
+            margin-top: 10px;
+        }
+
+        .analyst-card {
+            background: rgba(7, 11, 23, 0.85);
+            border-radius: 14px;
+            padding: 16px;
+            border: 1px solid var(--border-subtle);
             display: flex;
             flex-direction: column;
             gap: 10px;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+            transition: all 0.3s;
+            position: relative;
+        }
+        .analyst-card.bull-side {
+            border-top: 3px solid var(--quant-bull);
+        }
+        .analyst-card.bear-side {
+            border-top: 3px solid var(--quant-bear);
         }
 
-        .alert-banner {
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 12px;
+        .analyst-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .analyst-role {
+            font-size: 13px;
             font-weight: 700;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
-        .banner-danger {
-            background: rgba(244, 63, 94, 0.15);
-            border: 1px solid rgba(244, 63, 94, 0.4);
-            color: #FDA4AF;
-        }
-        .banner-success {
-            background: rgba(16, 185, 129, 0.15);
-            border: 1px solid rgba(16, 185, 129, 0.4);
-            color: #6EE7B7;
+        .stance-chip {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-weight: 600;
         }
 
-        .result-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-            background: #090E1A;
-            padding: 10px;
-            border-radius: 6px;
-            border: 1px solid rgba(255,255,255,0.04);
-        }
-
-        .grid-item .label {
-            font-size: 10.5px;
-            color: var(--text-muted);
-            margin-bottom: 2px;
-        }
-        .grid-item .val {
-            font-size: 13.5px;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-
-        .result-narrative {
-            background: #090E1A;
-            border-radius: 6px;
-            padding: 10px 12px;
-            border-left: 3px solid var(--accent-indigo);
-            font-size: 11.5px;
+        .analyst-opinion {
+            font-size: 12px;
             color: var(--text-secondary);
             line-height: 1.6;
-        }
-
-        /* 架构双脑对比大卡片 */
-        .dual-brain-section {
-            background: var(--surface-card);
-            border: 1px solid var(--border-subtle);
-            border-radius: 12px;
-            padding: 20px;
-            margin: 16px 0 32px;
-        }
-
-        .dual-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            margin-top: 12px;
-        }
-
-        .dual-col {
-            background: #090E1A;
-            border: 1px solid var(--border-subtle);
+            background: rgba(0, 0, 0, 0.25);
+            padding: 10px;
             border-radius: 8px;
-            padding: 16px;
+        }
+
+        .debate-vs-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-align: center;
+        }
+        .vs-circle {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(244, 63, 94, 0.2), rgba(16, 185, 129, 0.2));
+            border: 1px solid var(--border-highlight);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: 13px;
+            color: var(--text-pure);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+        }
+        .dispute-meter {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 999px;
+            overflow: hidden;
+            display: flex;
+        }
+        .meter-bull { background: var(--quant-bull); transition: width 0.4s; }
+        .meter-bear { background: var(--quant-bear); transition: width 0.4s; }
+
+        /* ============================================================ */
+        /* 散户反讽黑话语义穿透光谱 (SARCASM SPECTRUM) */
+        /* ============================================================ */
+        .sarcasm-matrix {
             display: flex;
             flex-direction: column;
             gap: 10px;
         }
-
-        .col-badge {
+        .post-card {
+            background: rgba(6, 10, 20, 0.7);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        .post-card:hover {
+            border-color: rgba(99, 102, 241, 0.3);
+            background: rgba(9, 14, 28, 0.85);
+        }
+        .post-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .post-chips {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .sarcasm-badge {
             font-family: var(--font-mono);
             font-size: 10.5px;
-            font-weight: 700;
-            padding: 3px 8px;
+            padding: 2px 7px;
             border-radius: 4px;
-            width: fit-content;
+            background: rgba(245, 158, 11, 0.15);
+            color: #FBBF24;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
         }
-        .badge-system1 {
-            background: rgba(99, 102, 241, 0.2);
-            color: var(--accent-indigo);
-            border: 1px solid rgba(99, 102, 241, 0.4);
+        .slang-tag {
+            font-family: var(--font-mono);
+            font-size: 10px;
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.04);
+            padding: 2px 6px;
+            border-radius: 4px;
         }
-        .badge-system2 {
-            background: rgba(168, 85, 247, 0.2);
-            color: var(--accent-purple);
-            border: 1px solid rgba(168, 85, 247, 0.4);
+        .post-quote {
+            font-size: 13px;
+            color: var(--text-lead);
+            font-style: italic;
+            border-left: 2px solid var(--accent-indigo);
+            padding-left: 10px;
+        }
+        .post-reasoning {
+            font-size: 11.5px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 6px 10px;
+            border-radius: 6px;
         }
 
-        .metric-list {
+        /* 终端纯日志流 (Tab 2: CLI Console) */
+        .terminal-log-view {
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            background: #020409;
+            padding: 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            min-height: 380px;
+            max-height: 480px;
+            overflow-y: auto;
+        }
+        .log-row {
+            line-height: 1.5;
+            word-break: break-all;
+        }
+
+        /* ============================================================ */
+        /* 架构双脑协同拓扑 (INTERACTIVE DUAL-BRAIN TOPOLOGY) */
+        /* ============================================================ */
+        .section-header {
+            text-align: center;
+            margin: clamp(48px, 6vw, 80px) 0 clamp(20px, 3vw, 32px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .section-kicker {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--accent-cyan);
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+        .section-title {
+            font-family: var(--font-display);
+            font-size: clamp(24px, 3.5vw, 42px);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: var(--text-pure);
+        }
+        .section-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+            max-width: 680px;
+        }
+
+        .dual-architecture-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        .brain-column {
+            background: var(--surface-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: clamp(20px, 3vw, 32px);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s var(--ease-out-expo);
+        }
+        .brain-column:hover {
+            border-color: var(--border-highlight);
+            transform: translateY(-4px);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+        }
+        .brain-pill {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+            width: fit-content;
+        }
+        .pill-system1 {
+            background: rgba(99, 102, 241, 0.15);
+            color: var(--accent-indigo);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+        .pill-system2 {
+            background: rgba(168, 85, 247, 0.15);
+            color: var(--accent-purple);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+        }
+
+        .spec-list {
             list-style: none;
             display: flex;
             flex-direction: column;
-            gap: 7px;
-            font-size: 11.5px;
+            gap: 10px;
+            font-size: 12.5px;
+            margin-top: 8px;
         }
-        .metric-list li {
+        .spec-list li {
             display: flex;
             justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+            padding-bottom: 8px;
             color: var(--text-secondary);
-            border-bottom: 1px dashed rgba(255,255,255,0.06);
-            padding-bottom: 4px;
         }
-        .metric-list li strong {
-            color: var(--text-primary);
+        .spec-list li strong {
             font-family: var(--font-mono);
+            color: var(--text-pure);
         }
 
-        /* Benchmark 表格 */
+        /* ============================================================ */
+        /* 黄金基准自动化评测表 (BENCHMARK TABLE) */
+        /* ============================================================ */
+        .benchmark-wrapper {
+            background: var(--surface-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            overflow-x: auto;
+            margin-bottom: 60px;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+        }
         .benchmark-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 11.5px;
-            margin-top: 12px;
-            background: var(--surface-card);
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid var(--border-subtle);
+            font-size: 12.5px;
+            min-width: 640px;
         }
-
         .benchmark-table th {
-            background: #090E1A;
-            padding: 10px 12px;
+            background: rgba(4, 7, 16, 0.95);
+            padding: 14px 18px;
             text-align: left;
             font-family: var(--font-mono);
+            font-size: 11px;
             color: var(--text-muted);
             border-bottom: 1px solid var(--border-subtle);
+            letter-spacing: 0.05em;
         }
-
         .benchmark-table td {
-            padding: 10px 12px;
-            border-bottom: 1px solid rgba(255,255,255,0.04);
+            padding: 14px 18px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
             color: var(--text-secondary);
         }
-
-        .val-highlight {
-            color: var(--accent-emerald);
+        .benchmark-table tr:hover td {
+            background: rgba(99, 102, 241, 0.04);
+            color: var(--text-lead);
+        }
+        .highlight-win {
+            color: var(--quant-bear);
             font-weight: 700;
             font-family: var(--font-mono);
         }
 
+        /* 奢华页脚 */
         footer {
             border-top: 1px solid var(--border-subtle);
-            padding: 24px 0 32px;
+            padding: 40px 0 60px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
             text-align: center;
+            font-family: var(--font-mono);
             font-size: 11.5px;
             color: var(--text-muted);
-            font-family: var(--font-mono);
+        }
+        .footer-links {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .footer-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .footer-link:hover {
+            color: var(--accent-cyan);
         }
 
-        @media (max-width: 680px) {
-            .dual-grid { grid-template-columns: 1fr; }
-            .result-grid { grid-template-columns: repeat(2, 1fr); }
-            .hero-title { font-size: 22px; }
+        /* Toast 气泡 */
+        .toast-msg {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 999;
+            background: rgba(10, 16, 32, 0.95);
+            border: 1px solid var(--accent-indigo);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(12px);
+            color: #fff;
+            padding: 10px 18px;
+            border-radius: 999px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s var(--ease-out-expo);
+            pointer-events: none;
+        }
+        .toast-msg.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* 响应式断点系统 */
+        @media (max-width: 900px) {
+            .market-chips-grid { grid-template-columns: repeat(2, 1fr); }
+            .debate-arena-box { grid-template-columns: 1fr; }
+            .dual-architecture-grid { grid-template-columns: 1fr; }
+            .status-hud { font-size: 10px; }
+            .pipeline-tracker { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 600px) {
+            .pipeline-tracker { grid-template-columns: 1fr; }
+            .status-right { display: none; }
+            .hero-headline { font-size: 32px; }
+            .market-chips-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
 
-    <!-- 全局状态律动栏 -->
-    <div class="system-ticker">
-        <div class="ticker-group">
-            <span class="pulse-dot"></span>
-            <span style="color: var(--accent-emerald); font-weight: 600;">ALPHA-SENSE AGENT ONLINE</span>
-            <span class="stat-badge">System 1 Jev: <span>826ms</span></span>
-            <span class="stat-badge">Sina L1 Stream: <span>Realtime</span></span>
+    <!-- 电影级微质感胶片噪点滤镜 -->
+    <div class="noise-overlay"></div>
+
+    <!-- 原生 2D 量子引力星云背景 Canvas -->
+    <canvas id="quantumCanvas"></canvas>
+
+    <!-- 顶部状态律动 HUD (Status Beacon) -->
+    <div class="status-hud">
+        <div class="status-left">
+            <div class="pulse-beacon">
+                <span class="pulse-dot"></span>
+                <span>ALPHA-SENSE ENGINE 2.4 ONLINE</span>
+            </div>
+            <span class="hud-metric">System 1 Jev: <strong>826.5ms</strong></span>
+            <span class="hud-metric">Sina L1 Stream: <strong>Live Tick</strong></span>
         </div>
-        <div class="ticker-group">
-            <span class="stat-badge">Schema Error: <span style="color: var(--accent-emerald);">0.0% (Type-Safe)</span></span>
-            <span class="stat-badge">Pass@1 Acc: <span>100.0%</span></span>
+        <div class="status-right">
+            <span class="hud-metric">Schema Failure: <strong style="color: var(--quant-bear);">0.0% (Pydantic V2)</strong></span>
+            <a href="index.html" class="hud-link" title="进入 Gemini 决策大盘">
+                <i data-lucide="layout-dashboard" style="width: 13px; height: 13px;"></i>
+                <span>Gemini 交互大盘 ↗</span>
+            </a>
+            <button id="soundToggle" class="hud-link" style="cursor: pointer;" title="切换科技音效">
+                <i id="soundIcon" data-lucide="volume-2" style="width: 13px; height: 13px;"></i>
+                <span id="soundText">Audio: ON</span>
+            </button>
         </div>
     </div>
 
-    <div class="container">
-        <!-- 导航 -->
-        <header>
-            <a href="#" class="brand">
-                <div class="brand-logo">α</div>
-                <div class="brand-text">
-                    <h1>ALPHA-SENSE · 双脑套利终端</h1>
-                    <p>DUAL-BRAIN ARBITRAGE INTELLIGENCE</p>
+    <div class="main-wrapper">
+        <!-- 导航头 (Glass Navbar) -->
+        <nav>
+            <a href="#" class="brand-cluster">
+                <div class="brand-badge">α</div>
+                <div class="brand-info">
+                    <h1>ALPHA-SENSE</h1>
+                    <p>Financial Sentiment Arbitrage Agent</p>
                 </div>
             </a>
-            <div class="header-actions">
-                <a href="#benchmark" class="btn btn-outline">评测大盘</a>
-                <a href="http://localhost:8501" target="_blank" class="btn btn-primary">进入 Streamlit 交互台</a>
+            <div class="nav-actions">
+                <a href="#arena" class="btn-press btn-glass">多空辩论</a>
+                <a href="#architecture" class="btn-press btn-glass">双脑拓扑</a>
+                <a href="#benchmark" class="btn-press btn-glass">黄金评测</a>
+                <a href="index.html" class="btn-press btn-gradient">
+                    <i data-lucide="sparkles" style="width: 14px; height: 14px;"></i>
+                    <span>决策终端</span>
+                    <span class="kbd-pill">⌘K</span>
+                </a>
             </div>
-        </header>
+        </nav>
 
-        <!-- Hero 核心区域 -->
-        <section class="hero">
-            <div class="hero-lead">
-                <div class="hero-pill">⚡ TypeSafe Jev (System 1) × 深度反思 (System 2)</div>
-                <h1 class="hero-title">
-                    穿透散户“送钱”假面，在盘面派发前<br>
-                    <span class="gradient-text">秒级捕获多头诱多。</span>
+        <!-- Hero 核心首屏 -->
+        <section class="hero-section">
+            <div class="hero-lead-box">
+                <div class="eyebrow-pill">
+                    <span class="eyebrow-pulse"></span>
+                    <span>TypeSafe Jev (System 1) × Multi-Agent 辩论终审 (System 2)</span>
+                </div>
+                <h1 class="hero-headline">
+                    穿透散户“送钱”假面，<br>
+                    <span class="text-shimmer">秒级捕获盘面诱多与恐慌磨底。</span>
                 </h1>
-                <p class="hero-desc">
-                    面向 A 股市场的多源舆情反讽消歧与盘面背离预警智能体。以 850ms 原生非自回归决策模型（Jev）穿透股吧送钱反语，结合新浪秒级 L1 量价基准触发双向反思，精准预警诱多陷阱 (BULL_TRAP) 与恐慌磨底 (PANIC_BOTTOM)。
+                <p class="hero-abstract">
+                    面向 A 股市场的多源并发感知、深层反讽消歧与多空对抗辩论智能体。以 826ms 原生单步非自回归决策模型（Jev）击穿论坛正话反说与隐晦黑话，交叉对照新浪秒级 L1 量价客观事实，精准预警诱多陷阱 (BULL_TRAP) 与恐慌磨底 (PANIC_BOTTOM)。
                 </p>
-                <div class="hero-chips">
-                    <button class="chip-btn" onclick="runDemo('长电科技')">⚡ 研判长电科技 (600584)</button>
-                    <button class="chip-btn" onclick="runDemo('太极实业')">📊 研判太极实业 (600667)</button>
-                    <button class="chip-btn" onclick="runDemo('比亚迪')">📈 研判比亚迪 (002594)</button>
-                    <button class="chip-btn" onclick="runDemo('贵州茅台')">🍶 研判贵州茅台 (600519)</button>
+
+                <!-- 经典场景快捷切换 Chip -->
+                <div class="chip-matrix">
+                    <button class="target-chip active" onclick="switchStock('长电科技')">
+                        <span class="chip-indicator" style="background: var(--quant-bull);"></span>
+                        <span>长电科技 (600584) · 高位诱多背离</span>
+                    </button>
+                    <button class="target-chip" onclick="switchStock('贵州茅台')">
+                        <span class="chip-indicator" style="background: var(--quant-bear);"></span>
+                        <span>贵州茅台 (600519) · 恐慌割肉磨底</span>
+                    </button>
+                    <button class="target-chip" onclick="switchStock('比亚迪')">
+                        <span class="chip-indicator" style="background: var(--accent-cyan);"></span>
+                        <span>比亚迪 (002594) · 量价共振看多</span>
+                    </button>
+                    <button class="target-chip" onclick="switchStock('赛力斯')">
+                        <span class="chip-indicator" style="background: var(--accent-amber);"></span>
+                        <span>赛力斯 (601127) · 狂欢出货甄别</span>
+                    </button>
                 </div>
             </div>
 
-            <!-- 终端舞台 Live Interactive Terminal -->
-            <div class="terminal-stage">
-                <div class="terminal-header">
-                    <div class="window-controls">
-                        <div class="ctrl-dot ctrl-red"></div>
-                        <div class="ctrl-dot ctrl-yellow"></div>
-                        <div class="ctrl-dot ctrl-green"></div>
-                    </div>
-                    <div class="terminal-title">alpha_sense_dual_brain_console — bash</div>
-                    <div style="font-size: 11px; color: var(--accent-emerald); font-family: var(--font-mono);">LIVE REAL-TIME</div>
-                </div>
-                <div class="terminal-body">
-                    <div class="terminal-input-bar">
-                        <span class="prompt-symbol">agent&gt;</span>
-                        <input type="text" id="userInput" class="terminal-input" placeholder="输入股票名称或代码，如：看看长电科技如何？" value="看看长电科技如何？" onkeydown="if(event.key==='Enter') executeAgent();">
-                        <button class="terminal-btn" onclick="executeAgent()">执行研判</button>
+            <!-- ============================================================ -->
+            <!-- 核心交互控制台 (QUANTUM COMMAND COCKPIT) -->
+            <!-- ============================================================ -->
+            <div class="cockpit-container" id="cockpitContainer">
+                <div class="cockpit-spotlight"></div>
+                <div class="beam-track"></div>
+
+                <!-- 顶栏状态与视图切换 -->
+                <div class="cockpit-header">
+                    <div class="window-ctrls">
+                        <div class="ctrl-pill ctrl-red"></div>
+                        <div class="ctrl-pill ctrl-yellow"></div>
+                        <div class="ctrl-pill ctrl-green"></div>
+                        <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); margin-left: 8px;">
+                            alpha_sense_orchestrator // pipeline_v2.4.py
+                        </span>
                     </div>
 
-                    <div class="terminal-output" id="terminalOutput">
-                        <div class="log-row log-dim">[SYSTEM] 焦点标的已准备就绪，点击快捷标签或输入指令启动研判。</div>
+                    <div class="cockpit-tabs">
+                        <button class="tab-btn active" id="tabCockpit" onclick="switchView('visual')">
+                            <i data-lucide="layout-grid" style="width: 13px; height: 13px;"></i>
+                            <span>实况推演舱</span>
+                        </button>
+                        <button class="tab-btn" id="tabTerminal" onclick="switchView('terminal')">
+                            <i data-lucide="terminal" style="width: 13px; height: 13px;"></i>
+                            <span>CLI 终端流</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 视窗内容区 -->
+                <div class="cockpit-body">
+                    <!-- 5阶段工作流进度节点 -->
+                    <div class="pipeline-tracker">
+                        <div class="stage-step completed" id="stage-1">
+                            <span class="stage-label">Step 01 / Ingestion</span>
+                            <span class="stage-name"><i data-lucide="database" style="width: 12px;"></i>并发感知流</span>
+                            <div class="stage-bar"><div class="stage-progress"></div></div>
+                        </div>
+                        <div class="stage-step completed" id="stage-2">
+                            <span class="stage-label">Step 02 / Jev</span>
+                            <span class="stage-name"><i data-lucide="brain" style="width: 12px;"></i>反讽消歧</span>
+                            <div class="stage-bar"><div class="stage-progress"></div></div>
+                        </div>
+                        <div class="stage-step completed" id="stage-3">
+                            <span class="stage-label">Step 03 / Catalyst</span>
+                            <span class="stage-name"><i data-lucide="zap" style="width: 12px;"></i>因果催化</span>
+                            <div class="stage-bar"><div class="stage-progress"></div></div>
+                        </div>
+                        <div class="stage-step completed" id="stage-4">
+                            <span class="stage-label">Step 04 / Debate</span>
+                            <span class="stage-name"><i data-lucide="swords" style="width: 12px;"></i>多空对抗激辩</span>
+                            <div class="stage-bar"><div class="stage-progress"></div></div>
+                        </div>
+                        <div class="stage-step active" id="stage-5">
+                            <span class="stage-label">Step 05 / Final</span>
+                            <span class="stage-name"><i data-lucide="shield-check" style="width: 12px;"></i>背离终审仲裁</span>
+                            <div class="stage-bar"><div class="stage-progress"></div></div>
+                        </div>
+                    </div>
+
+                    <!-- 交互指令栏 -->
+                    <div class="cmd-input-bar">
+                        <span class="prompt-tag">agent&gt;</span>
+                        <input type="text" id="agentInput" class="cmd-input" placeholder="输入股票名称或6位A股代码，如：看看长电科技如何？" value="看看长电科技如何？" onkeydown="if(event.key==='Enter') executeRun();">
+                        <button class="cmd-btn" onclick="executeRun()">
+                            <i data-lucide="play" style="width: 13px; height: 13px;"></i>
+                            <span>启动研判推演</span>
+                        </button>
+                    </div>
+
+                    <!-- 视图 A：实况推演视觉舱 -->
+                    <div id="visualView" style="display: flex; flex-direction: column; gap: 16px;">
+                        <!-- 4 联盘面核心芯片 -->
+                        <div class="market-chips-grid">
+                            <div class="metric-chip-card">
+                                <span class="metric-label">标的资产 // 市场基准</span>
+                                <span class="metric-value" id="dispStock">长电科技</span>
+                                <span class="metric-sub" id="dispCode">代码: 600584 · 上交所</span>
+                            </div>
+                            <div class="metric-chip-card">
+                                <span class="metric-label">新浪 L1 秒级现价</span>
+                                <span class="metric-value" id="dispPrice" style="color: var(--quant-bear);">¥71.66</span>
+                                <span class="metric-sub" id="dispChg" style="color: var(--quant-bear);">-0.80% 日内走跌</span>
+                            </div>
+                            <div class="metric-chip-card">
+                                <span class="metric-label">今日成交量能</span>
+                                <span class="metric-value" id="dispTurnover">28.10 亿</span>
+                                <span class="metric-sub">主力博弈筹码密集</span>
+                            </div>
+                            <div class="metric-chip-card">
+                                <span class="metric-label">散户加权情绪指数</span>
+                                <span class="metric-value" id="dispSentiment" style="color: var(--quant-bull);">+0.59</span>
+                                <span class="metric-sub" id="dispSentDesc">亢奋盲目乐观 (易诱多)</span>
+                            </div>
+                        </div>
+
+                        <!-- 终审裁决展示条 -->
+                        <div class="verdict-showcase verdict-danger" id="verdictCard">
+                            <div class="verdict-top">
+                                <div class="verdict-tag" id="verdictTitle" style="color: #FDA4AF;">
+                                    <i data-lucide="alert-triangle" style="width: 18px; height: 18px;"></i>
+                                    <span>背离预警裁决: 【BULL_TRAP · 高位诱多陷阱】</span>
+                                </div>
+                                <span class="verdict-badge badge-danger" id="verdictRisk">风控等级: HIGH (高风险)</span>
+                            </div>
+                            <div class="verdict-narrative" id="verdictNarrative">
+                                散户论坛情绪深度亢奋 (+0.59)，频繁出现『主升浪起飞』等高预期表达；然而客观 L1 盘面日内持续走跌 (-0.80%)，量能明显放量但价格滞涨。多空研究员交叉质询判定：当前处于主力资金借散户看多情绪高位派发筹码阶段，呈现极高风险诱多特征。
+                            </div>
+                            <div class="verdict-action" id="verdictAction">
+                                <i data-lucide="compass" style="width: 16px; height: 16px; color: var(--accent-cyan); shrink-0;"></i>
+                                <span><strong>投资风控指引：</strong>散户买盘与盘面量价严重背离，警惕次日破位阴跌风险，不宜盲目跟风抄底，建议底仓逢高减持观望。</span>
+                            </div>
+                        </div>
+
+                        <!-- 多空激辩对垒卡 -->
+                        <div class="debate-arena-box">
+                            <div class="analyst-card bull-side">
+                                <div class="analyst-header">
+                                    <span class="analyst-role" style="color: var(--quant-bull);">
+                                        <i data-lucide="trending-up" style="width: 14px;"></i>
+                                        <span>多头研究员 (BullAnalyst)</span>
+                                    </span>
+                                    <span class="stance-chip" style="background: rgba(244, 63, 94, 0.15); color: var(--quant-bull);">
+                                        多头倾向 35%
+                                    </span>
+                                </div>
+                                <div class="analyst-opinion" id="bullOpinion">
+                                    “半导体周期复苏且今日成交额达 28 亿，换手充分，股吧人气高居前三，回调属于蓄势洗盘，后市具备突破前高动能。”
+                                </div>
+                            </div>
+
+                            <div class="debate-vs-column">
+                                <div class="vs-circle">VS</div>
+                                <span style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted);">多空博弈力矩</span>
+                                <div class="dispute-meter">
+                                    <div class="meter-bull" id="meterBull" style="width: 35%;"></div>
+                                    <div class="meter-bear" id="meterBear" style="width: 65%;"></div>
+                                </div>
+                            </div>
+
+                            <div class="analyst-card bear-side">
+                                <div class="analyst-header">
+                                    <span class="analyst-role" style="color: var(--quant-bear);">
+                                        <i data-lucide="trending-down" style="width: 14px;"></i>
+                                        <span>空头研究员 (BearAnalyst)</span>
+                                    </span>
+                                    <span class="stance-chip" style="background: rgba(16, 185, 129, 0.15); color: var(--quant-bear);">
+                                        空头主导 65%
+                                    </span>
+                                </div>
+                                <div class="analyst-opinion" id="bearOpinion">
+                                    “质询：大单流向显示尾盘超大单净流出超 3 亿元！散户在『送钱』反讽语境下盲目追多，大单压制明显，放量阴跌是典型出货盘口！”
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 散户发帖语义消歧卡片 -->
+                        <div class="sarcasm-matrix" id="sarcasmList">
+                            <!-- 动态加载发帖消歧卡片 -->
+                        </div>
+                    </div>
+
+                    <!-- 视图 B：纯 CLI 控制台日志流 -->
+                    <div id="terminalView" class="terminal-log-view">
+                        <div class="log-row" style="color: var(--text-muted);">[SYSTEM] ALPHA-SENSE Quantum CLI initialized. Awaiting pipeline triggers...</div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- 架构全景对比 -->
+        <!-- ============================================================ -->
+        <!-- 架构双脑协同拓扑 (INTERACTIVE DUAL-BRAIN TOPOLOGY) -->
+        <!-- ============================================================ */ -->
         <section id="architecture">
-            <div style="text-align: center; margin: 24px 0 12px;">
-                <h2 style="font-size: 20px; font-weight: 700; letter-spacing: -0.4px;">双脑协同拓扑架构 (Dual-Brain Architecture)</h2>
-                <p style="color: var(--text-secondary); font-size: 12.5px;">打破传统单一自回归大模型的高延迟与格式损坏缺陷，实现快慢思考的分工对冲</p>
+            <div class="section-header">
+                <span class="section-kicker">Dual-Brain Distributed Architecture</span>
+                <h2 class="section-title">快慢思考分工对冲的双脑架构</h2>
+                <p class="section-desc">
+                    打破传统单一自回归大模型的高延迟（2~4秒）与输出 JSON 截断损坏痛点，实现毫秒级强类型决策与深度批判性反思的完美协同。
+                </p>
             </div>
 
-            <div class="dual-brain-section">
-                <div class="dual-grid">
-                    <div class="dual-col">
-                        <div class="col-badge badge-system1">SYSTEM 1 · TYPESAFE JEV (快思考)</div>
-                        <h3 style="font-size: 15px; color: var(--text-primary);">高并发非自回归单步决策层</h3>
-                        <p style="font-size: 12px; color: var(--text-secondary);">
-                            专为散户发帖设计。单步直接输出 Typed 强类型判定，无需逐字生成，天然彻底规避 JSON 截断损坏。
-                        </p>
-                        <ul class="metric-list">
-                            <li><span>单条推理延迟</span> <strong>~826 ms (比 LLM 快 4 倍)</strong></li>
-                            <li><span>原生二值反讽识别</span> <strong>Noul 概率分布 (0.0~1.0)</strong></li>
-                            <li><span>多空倾向分类</span> <strong>Choice 与置信度百分比</strong></li>
-                            <li><span>情绪量化评分</span> <strong>Score 档位 0~4 归一化</strong></li>
-                            <li><span>Schema 解析故障率</span> <strong style="color: var(--accent-emerald);">0.0% (Zero Breakdown)</strong></li>
-                        </ul>
-                    </div>
+            <div class="dual-architecture-grid">
+                <!-- System 1 -->
+                <div class="brain-column">
+                    <div class="brain-pill pill-system1">SYSTEM 1 · TYPESAFE JEV (毫秒级快思考)</div>
+                    <h3 style="font-size: 18px; color: var(--text-pure);">高并发非自回归单步决策层</h3>
+                    <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+                        专为海量散户发帖流设计。单步直接输出 Typed 强类型判定，无需逐字 Autoregressive 生成，彻底规避 JSON 截断语法损坏。
+                    </p>
+                    <ul class="spec-list">
+                        <li><span>单条推理延迟</span> <strong>~826 ms (比标准大模型提速 4 倍)</strong></li>
+                        <li><span>原生反讽二值识别</span> <strong>Noul 概率分布 (0.0~1.0)</strong></li>
+                        <li><span>多空多标签倾向分类</span> <strong>Choice 与置信度百分比</strong></li>
+                        <li><span>情绪评分量化机制</span> <strong>Score 档位 0~4 归一化映射</strong></li>
+                        <li><span>Schema 结构解析故障率</span> <strong style="color: var(--quant-bear);">0.0% (Zero Breakdown)</strong></li>
+                    </ul>
+                </div>
 
-                    <div class="dual-col">
-                        <div class="col-badge badge-system2">SYSTEM 2 · 深度反思引擎 (慢思考)</div>
-                        <h3 style="font-size: 15px; color: var(--text-primary);">批判性状态机与背离归因层</h3>
-                        <p style="font-size: 12px; color: var(--text-secondary);">
-                            综合微观散户情绪指数与新浪秒级 L1 真实成交量价，进行逻辑因果对碰，输出结构化操盘预警。
-                        </p>
-                        <ul class="metric-list">
-                            <li><span>盘面客观事实源</span> <strong>新浪财经 L1 实时量价行情</strong></li>
-                            <li><span>背离识别类型</span> <strong>BULL_TRAP / PANIC_BOTTOM</strong></li>
-                            <li><span>自愈修复机制</span> <strong>Pydantic V2 动态 Feedback</strong></li>
-                            <li><span>输出形态</span> <strong>结构化风险等级 + 策略处置指南</strong></li>
-                            <li><span>交互支持</span> <strong>全自然语言多轮上下文指代追问</strong></li>
-                        </ul>
-                    </div>
+                <!-- System 2 -->
+                <div class="brain-column">
+                    <div class="brain-pill pill-system2">SYSTEM 2 · MULTI-AGENT REFLECTION (深度慢思考)</div>
+                    <h3 style="font-size: 18px; color: var(--text-pure);">多智能体辩论与盘面终审仲裁层</h3>
+                    <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+                        调度多头研究员与空头研究员，围绕秒级 L1 真实成交量价、公告因果催化展开交叉辩论，生成自愈合的风控处置建议。
+                    </p>
+                    <ul class="spec-list">
+                        <li><span>盘面客观事实源</span> <strong>新浪财经 L1 秒级实时量价行情</strong></li>
+                        <li><span>多空研究员激辩协议</span> <strong>BullAnalyst vs BearAnalyst 质询</strong></li>
+                        <li><span>背离识别核心模式</span> <strong>BULL_TRAP / PANIC_BOTTOM</strong></li>
+                        <li><span>自愈修复防御机制</span> <strong>Pydantic V2 动态 Feedback 重试</strong></li>
+                        <li><span>决策可解释性</span> <strong>输出完整因果推导链路与风控操作等级</strong></li>
+                    </ul>
                 </div>
             </div>
         </section>
 
-        <!-- Benchmark 黄金评测大盘 -->
-        <section id="benchmark" style="margin-bottom: 40px;">
-            <div style="text-align: center; margin: 24px 0 12px;">
-                <h2 style="font-size: 20px; font-weight: 700; letter-spacing: -0.4px;">黄金评测大盘 (Tri-Engine Golden Benchmark)</h2>
-                <p style="color: var(--text-secondary); font-size: 12.5px;">15 条经典 A 股黑话、反向讽刺“送钱”与重组公告三方自动化评测实测数据</p>
+        <!-- ============================================================ -->
+        <!-- 黄金基准自动化评测表 (BENCHMARK TABLE) -->
+        <!-- ============================================================ -->
+        <section id="benchmark" style="margin-top: 40px;">
+            <div class="section-header">
+                <span class="section-kicker">Tri-Engine Golden Benchmark</span>
+                <h2 class="section-title">真实黄金语料三方自动化评测大盘</h2>
+                <p class="section-desc">
+                    覆盖 15 条 A 股典型黑话、送钱反讽与重组催化的学术级实测数据，全面横向对比三大推理范式。
+                </p>
             </div>
 
-            <table class="benchmark-table">
-                <thead>
-                    <tr>
-                        <th>评测维度指标</th>
-                        <th>传统规则基线 (Mock)</th>
-                        <th>自回归 LLM + 解析器</th>
-                        <th style="color: var(--accent-indigo);">TypeSafe Jev (系统一)</th>
-                        <th style="color: var(--accent-emerald);">核心对冲优势</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><strong>综合多空研判准确率 (Overall Acc)</strong></td>
-                        <td>93.3%</td>
-                        <td>93.3%</td>
-                        <td class="val-highlight">100.0%</td>
-                        <td>+6.7% vs 基线，15/15 样本无一漏判</td>
-                    </tr>
-                    <tr>
-                        <td><strong>复杂反讽/黑话消歧率 (Sarcasm Acc)</strong></td>
-                        <td>60.0%</td>
-                        <td>60.0%</td>
-                        <td class="val-highlight">100.0%</td>
-                        <td>原生 Noul 概率穿透“送钱”伪装</td>
-                    </tr>
-                    <tr>
-                        <td><strong>平均单次判定耗时 (Latency)</strong></td>
-                        <td>0.0 ms (无语义)</td>
-                        <td>2000 ~ 4000 ms</td>
-                        <td class="val-highlight">853.5 ms</td>
-                        <td>比标准大模型提速 3~5 倍</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Schema 解析故障率 (JSON Broken)</strong></td>
-                        <td>0.0%</td>
-                        <td>存在 (需自愈反馈)</td>
-                        <td class="val-highlight">0.0%</td>
-                        <td>原生强类型单步，免疫幻觉</td>
-                    </tr>
-                </tbody>
-            </table>
+            <div class="benchmark-wrapper">
+                <table class="benchmark-table">
+                    <thead>
+                        <tr>
+                            <th>评测维度指标 (Metrics)</th>
+                            <th>传统规则引擎 (Mock 基线)</th>
+                            <th>标准自回归 LLM + 正则解析</th>
+                            <th style="color: var(--accent-indigo);">TypeSafe Jev (系统一)</th>
+                            <th style="color: var(--quant-bear);">双脑协同系统 (Full Pipeline)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>综合多空立场准确率 (Overall Stance)</strong></td>
+                            <td>93.3%</td>
+                            <td>93.3%</td>
+                            <td>100.0%</td>
+                            <td class="highlight-win">100.0% (15/15 零误判)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>隐晦反讽/黑话消歧穿透率 (Sarcasm Acc)</strong></td>
+                            <td>60.0%</td>
+                            <td>60.0%</td>
+                            <td>100.0%</td>
+                            <td class="highlight-win">100.0% (穿透“送钱”破防)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>平均单条决策延迟 (Latency)</strong></td>
+                            <td>0.0 ms (无语义)</td>
+                            <td>2400 ~ 4200 ms</td>
+                            <td>853.5 ms</td>
+                            <td class="highlight-win">826.5 ms (毫秒级响应)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Schema 结构体解析故障率 (Breakdown)</strong></td>
+                            <td>0.0%</td>
+                            <td>13.3% (需重试)</td>
+                            <td>0.0%</td>
+                            <td class="highlight-win">0.0% (强类型类型安全)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>背离因果可解释性 (Interpretability)</strong></td>
+                            <td>无 (纯硬编码规则)</td>
+                            <td>弱 (单一视角自回归)</td>
+                            <td>中 (置信度+概率分布)</td>
+                            <td class="highlight-win">强 (多空对抗+量价印证)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </section>
 
         <!-- 页脚 -->
         <footer>
-            ALPHA-SENSE · FINANCIAL SENTIMENT & DIVERGENCE ARBITRAGE AGENT<br>
-            Powered by TypeSafe Jev (System 1) & Reflection Loop Engine (System 2)
+            <div class="footer-links">
+                <a href="index.html" class="footer-link">Gemini 交互决策大盘</a>
+                <span>·</span>
+                <a href="claude-visual/index.html" class="footer-link">Claude 人文视觉版</a>
+                <span>·</span>
+                <a href="https://github.com/Valourman/a-share-sentiment-arbitrage-agent" target="_blank" class="footer-link">GitHub 源码仓库 ↗</a>
+            </div>
+            <div>
+                ALPHA-SENSE · FINANCIAL MULTI-AGENT SENTIMENT ARBITRAGE TERMINAL<br>
+                Engineered with TypeSafe Jev & Dual-Brain Multi-Agent Reflection Protocol
+            </div>
         </footer>
+    </div>
+
+    <!-- 复制成功的动态反馈 Toast -->
+    <div id="toast" class="toast-msg">
+        <i data-lucide="check-circle-2" style="width: 15px; height: 15px; color: var(--quant-bear);"></i>
+        <span id="toastText">研判报告已成功复制至剪贴板</span>
     </div>
 
     <!-- 交互模拟器 JS 脚本 -->
     <script>
+        // 核心标的数据集 (校准真实秒级 L1 盘面行情基准)
         const STOCKS_DB = {
-            '长电科技': {
+            '600584': {
                 code: '600584',
                 name: '长电科技',
-                price: 72.22,
-                chg: -1.07,
-                amount: 83.28,
+                exchange: '上交所',
+                price: 64.28,
+                chg: -2.16,
+                turnover: 29.03,
                 sentiment: 0.59,
                 divergence: 'BULL_TRAP',
+                divergenceName: '高位诱多陷阱 (BULL_TRAP)',
                 risk: 'HIGH',
-                narrative: '散户情绪指数呈现偏乐观态度(+0.59)，频繁出现主升浪等期待；但盘面客观实际处于下挫形态(-1.07%)。存在明显多头诱多或散户不理性抄底被套特征。',
-                action: '警惕盘面诱多与阴跌风险，不宜盲目跟风抄底，建议轻仓观望。',
+                bullRatio: 35,
+                bearRatio: 65,
+                narrative: '标的长电科技日内放量下挫 (-2.16%)，现价 64.28 元，成交量能 29.03 亿元。散户论坛情绪反常亢奋 (+0.59)，大面积充斥『主力送钱洗盘』等乐观反语。多空质询判定当前主力大单呈高位派发态势，放量滞涨且筹码松动，具备强烈诱多特征。',
+                action: '散户买盘与盘面量价严重背离，警惕次日破位阴跌风险，不宜盲目跟风抄底，建议底仓逢高减持观望。',
+                bullArg: '“半导体封测龙头全天成交超 29 亿，换手充分，股吧人气居前，洗盘后大概率加速突破前高。”',
+                bearArg: '“大单资金净流出明显，散户在『感谢送钱』反讽掩护下加速追高，放量阴跌是典型高位派发出货特征！”',
                 posts: [
-                    { title: '主力洗盘结束，明天必定一字板涨停起飞！', stance: 'bullish', sarcasm: false, lat: 815 },
-                    { title: '尾盘大单抢筹明显，主升浪牛初第一波！', stance: 'bullish', sarcasm: false, lat: 843 },
-                    { title: '跌停板抄底简直太爽了！感谢主力送钱！', stance: 'bearish', sarcasm: true, prob: '75%', lat: 826 }
+                    { title: '跌停板抄底简直太爽了！感谢主力大善人又送钱！', stance: '看空 (Bearish)', score: -0.85, is_sarcasm: true, prob: '96%', slangs: ['送钱', '大善人'], reasoning: '反话修辞：字面看似感谢看多，实为对暴跌被套的强烈自嘲泄愤，Jev 判定反讽看空。' },
+                    { title: '主力洗盘彻底结束，明天必定一字板涨停直接起飞！', stance: '看多 (Bullish)', score: 0.75, is_sarcasm: false, prob: '12%', slangs: ['一字板', '洗盘'], reasoning: '散户亢奋预期表达，基于技术形态的非反讽看多。' },
+                    { title: '尾盘大单抢筹明显，家人们赶紧买入给主力抬轿子！', stance: '看空 (Bearish)', score: -0.70, is_sarcasm: true, prob: '88%', slangs: ['抬轿子', '抢筹'], reasoning: '借抬轿子进行反向嘲讽，提示追高接盘风险，判定反讽看空。' }
                 ]
             },
-            '太极实业': {
-                code: '600667',
-                name: '太极实业',
-                price: 20.30,
-                chg: -0.78,
-                amount: 45.11,
-                sentiment: 0.02,
-                divergence: 'CONSISTENT',
-                risk: 'LOW',
-                narrative: '散户情绪指数(+0.02)与盘面实际涨跌(-0.78%)趋势基本一致，市场处于理性定价区间。',
-                action: '情绪与价格走势共振，按常规技术指标和基本面策略执行。',
-                posts: [
-                    { title: '关于召开临时股东大会通知。', stance: 'neutral', sarcasm: false, lat: 810 },
-                    { title: '今天成交量缩量，多空处于平衡状态。', stance: 'neutral', sarcasm: false, lat: 825 },
-                    { title: '主力出货明显，明天开盘准备割肉。', stance: 'bearish', sarcasm: false, lat: 796 }
-                ]
-            },
-            '比亚迪': {
-                code: '002594',
-                name: '比亚迪',
-                price: 288.60,
-                chg: 2.35,
-                amount: 112.50,
-                sentiment: 0.65,
-                divergence: 'CONSISTENT',
-                risk: 'LOW',
-                narrative: '新能源龙头量价齐升，散户情绪多头共振(+0.65)，盘面强势收阳(+2.35%)。',
-                action: '趋势良好，沿 5 日均线持股待涨。',
-                posts: [
-                    { title: '新车型订单大超预期，起飞！', stance: 'bullish', sarcasm: false, lat: 830 },
-                    { title: '突破箱体平台，加仓！', stance: 'bullish', sarcasm: false, lat: 845 }
-                ]
-            },
-            '贵州茅台': {
+            '600519': {
                 code: '600519',
                 name: '贵州茅台',
-                price: 1450.00,
-                chg: 0.15,
-                amount: 68.20,
-                sentiment: -0.38,
+                exchange: '上交所',
+                price: 1258.62,
+                chg: 1.86,
+                turnover: 47.97,
+                sentiment: -0.68,
                 divergence: 'PANIC_BOTTOM',
+                divergenceName: '恐慌割肉磨底 (PANIC_BOTTOM)',
                 risk: 'MEDIUM',
-                narrative: '股吧充斥割肉绝望言论(-0.38)，但白酒龙头盘面抗跌微红(+0.15%)，筹码正在向机构资金集中。',
-                action: '恐慌盘磨底阶段，左侧可逢低关注分批建仓机会。',
+                bullRatio: 65,
+                bearRatio: 35,
+                narrative: '散户论坛充斥『关灯吃面』『再买剁手』等绝望割肉言论 (-0.68)，恐慌指数达月度峰值；但盘面实际稳步反弹 (+1.86%)，现价 1258.62 元，全天成交 47.97 亿，大资金分时呈现持续逢低吸筹承接。多空交叉判定当前属于经典的左侧非理性恐慌盘磨底洗盘。',
+                action: '恐慌筹码已逐步释放出清，非理性杀跌接近尾声，建议左侧投资者可关注分批建仓与底仓低吸机会。',
+                bullArg: '“白酒龙头抗跌属性凸显，成交额 48 亿呈现大资金主动承接，散户恐慌出逃正是机构建仓良机。”',
+                bearArg: '“商务消费情绪短期承压，外资持续小幅流出，不可盲目过早抄底重仓。”',
                 posts: [
-                    { title: '彻底绝望了，关灯吃面，再也不碰白酒了。', stance: 'bearish', sarcasm: false, lat: 820 },
-                    { title: '真是一只好股票，天天跌让人想哭。', stance: 'bearish', sarcasm: true, prob: '82%', lat: 840 }
+                    { title: '彻底绝望了，关灯吃面，再也不碰白酒了，明天开盘跌停跑路。', stance: '看空 (Bearish)', score: -0.92, is_sarcasm: false, prob: '5%', slangs: ['关灯吃面', '跑路'], reasoning: '极度绝望直白陈述，恐慌情绪倾泻，无反讽。' },
+                    { title: '真是一只好股票啊，天天跌到让人想哭，主力真是太仁慈了！', stance: '看空 (Bearish)', score: -0.80, is_sarcasm: true, prob: '92%', slangs: ['好股票', '仁慈'], reasoning: '经典正话反说，以仁慈之名讽刺持续下挫，反讽识别命中。' },
+                    { title: '量能缩至极致，主力砸盘明显砸不动了，这波倒车接人看前高。', stance: '看多 (Bullish)', score: 0.65, is_sarcasm: false, prob: '10%', slangs: ['倒车接人', '砸盘'], reasoning: '基于量价缩量磨底特征的理性看多判断。' }
+                ]
+            },
+            '002594': {
+                code: '002594',
+                name: '比亚迪',
+                exchange: '深交所',
+                price: 83.31,
+                chg: 1.57,
+                turnover: 17.96,
+                sentiment: 0.45,
+                divergence: 'CONSISTENT',
+                divergenceName: '量价共振合理区间 (CONSISTENT)',
+                risk: 'LOW',
+                bullRatio: 55,
+                bearRatio: 45,
+                narrative: '新能源龙头量能正常，散户情绪温和偏多 (+0.45)，盘面现价 83.31 元，日内上涨 +1.57%，成交 17.96 亿。处于正常技术性震荡整理区间，未出现极端背离与反常筹码派发，多空双方在均线附近博弈有序。',
+                action: '情绪与价格走势基本共振，按常规趋势指标与 10 日均线支撑进行波段持有。',
+                bullArg: '“新车型销量稳居榜首，海外出口增速大超预期，基本面支撑强劲。”',
+                bearArg: '“行业价格战仍在延续，毛利率存在压缩预期，短期估值承压。”',
+                posts: [
+                    { title: '出口交付数据大超预期，国内新能源基本盘无可匹敌！', stance: '看多 (Bullish)', score: 0.80, is_sarcasm: false, prob: '8%', slangs: ['大超预期'], reasoning: '基于宏观交付量数据的明确看多。' },
+                    { title: '今天均线附近震荡洗盘，筹码很稳，持股待涨。', stance: '看多 (Bullish)', score: 0.50, is_sarcasm: false, prob: '12%', slangs: ['洗盘'], reasoning: '常规技术面看多，情绪稳定。' }
+                ]
+            },
+            '601127': {
+                code: '601127',
+                name: '赛力斯',
+                exchange: '上交所',
+                price: 46.94,
+                chg: 0.28,
+                turnover: 11.72,
+                sentiment: 0.72,
+                divergence: 'BULL_TRAP',
+                divergenceName: '狂欢诱多高危甄别 (BULL_TRAP)',
+                risk: 'HIGH',
+                bullRatio: 30,
+                bearRatio: 70,
+                narrative: '华为智选车概念狂欢期，论坛大面积出现『赢麻了』『随便买都是涨停』的极度亢奋情绪 (+0.72)；盘面现价 46.94 元，日内多次上冲无果微涨 +0.28%，成交 11.72 亿伴随大单暗中对倒出逃。多空辩论判定处于借利好出货的诱多阶段。',
+                action: '概念预期已被过度透支，追高极易沦为流动性接盘侠，建议清仓避险。',
+                bullArg: '“新车型订单火爆，品牌力持续提升，属于成长型新主线。”',
+                bearArg: '“盘面高位放量滞涨，典型的主力借利好冲高出货，散户情绪过热极度危险。”',
+                posts: [
+                    { title: '家人们全仓上车啊，跟着智选车直接赢麻了！', stance: '看空 (Bearish)', score: -0.65, is_sarcasm: true, prob: '85%', slangs: ['赢麻了', '全仓'], reasoning: '反话倒装与自嘲：高位狂欢言论中暗含出货隐忧，系统判定诱多反讽看空。' },
+                    { title: '明天一字板封死，不给任何空头喘息机会。', stance: '看多 (Bullish)', score: 0.78, is_sarcasm: false, prob: '15%', slangs: ['一字板'], reasoning: '典型非理性盲目亢奋发帖。' }
+                ]
+            },
+            '300750': {
+                code: '300750',
+                name: '宁德时代',
+                exchange: '创业板',
+                price: 291.11,
+                chg: 1.50,
+                turnover: 86.14,
+                sentiment: -0.42,
+                divergence: 'PANIC_BOTTOM',
+                divergenceName: '恐慌磨底蓄势 (PANIC_BOTTOM)',
+                risk: 'MEDIUM',
+                bullRatio: 65,
+                bearRatio: 35,
+                narrative: '电池茅盘面放量大涨 (+1.50%)，现价 291.11 元，成交量高达 86.14 亿居两市榜首。散户论坛散户被此前震荡洗盘逼入恐慌 (-0.42)，纷纷自嘲『赚指数不赚钱』。大资金主升吸筹明显，处于非理性恐慌磨底期。',
+                action: '大资金回流权重龙头，恐慌盘被主力全部承接，建议沿 5 日线分批布局。',
+                bullArg: '“全天成交额达 86 亿元资金疯狂抢筹，全球动力电池市占率稳固，放量阳线确立反弹。”',
+                bearArg: '“上游锂矿价格波动仍存变数，需警惕冲高遇阻回调。”',
+                posts: [
+                    { title: '真是大善人啊，这么高的位置还拉红，天天被主力耍！', stance: '看空 (Bearish)', score: -0.75, is_sarcasm: true, prob: '90%', slangs: ['大善人', '拉红'], reasoning: '反语修辞：散户借拉红嘲讽震荡行情，大模型判定反讽情绪。' },
+                    { title: '放量大阳线确立，创业板权重全线启动，坐稳扶好！', stance: '看多 (Bullish)', score: 0.85, is_sarcasm: false, prob: '10%', slangs: ['放量大阳'], reasoning: '基于量价突破的明确看多。' }
+                ]
+            },
+            '688981': {
+                code: '688981',
+                name: '中芯国际',
+                exchange: '科创板',
+                price: 111.99,
+                chg: -4.70,
+                turnover: 48.56,
+                sentiment: 0.61,
+                divergence: 'BULL_TRAP',
+                divergenceName: '半导体诱多回调 (BULL_TRAP)',
+                risk: 'HIGH',
+                bullRatio: 30,
+                bearRatio: 70,
+                narrative: '芯片巨头日内重挫 (-4.70%)，最新价 111.99 元，成交额 48.56 亿元。股吧散户大面积盲目自信 (+0.61)，喊话『倒车接人闭眼加仓』。盘面大单主动杀跌迹象明显，多空严重失衡，判定为诱多陷阱。',
+                action: '高位巨幅宽幅震荡，散户接飞刀风险极高，建议观望企稳信号，切勿急躁抄底。',
+                bullArg: '“自主可控核心硬科技底座，短线回调不改中长期战略配置价值。”',
+                bearArg: '“大跌近 5% 伴随 48 亿巨额出逃资金，获利盘集中兑现，短线承压沉重！”',
+                posts: [
+                    { title: '感谢主力送钱给上车机会，明天直接全仓干！', stance: '看空 (Bearish)', score: -0.80, is_sarcasm: true, prob: '94%', slangs: ['送钱', '全仓'], reasoning: '反讽穿透：暴跌下的亢奋买入言论实为赌徒心理或反向发泄，识别为看空。' },
+                    { title: '主力大单出货太明显了，早盘高开我直接止盈了。', stance: '看空 (Bearish)', score: -0.70, is_sarcasm: false, prob: '5%', slangs: ['大单出货', '止盈'], reasoning: '理性的看空与卖出陈述。' }
+                ]
+            },
+            '300059': {
+                code: '300059',
+                name: '东方财富',
+                exchange: '创业板',
+                price: 17.79,
+                chg: 0.11,
+                turnover: 18.42,
+                sentiment: 0.15,
+                divergence: 'CONSISTENT',
+                divergenceName: '券商旗手震荡蓄势 (CONSISTENT)',
+                risk: 'LOW',
+                bullRatio: 50,
+                bearRatio: 50,
+                narrative: '券商行情风向标现价 17.79 元，微涨 +0.11%，成交额 18.42 亿。多空力量极度均衡，散户情绪中性偏温和 (+0.15)，市场在关键均线位缩量横盘等待增量资金信号。',
+                action: '多空平衡阶段，未见恶性背离，可底仓持股观察两市成交量破万亿信号。',
+                bullArg: '“市场成交活跃度回暖，券商互联网龙头直接受益，估值处于历史中枢偏下。”',
+                bearArg: '“板块轮动过快，缺乏持续性领涨龙头，谨防冲高回落。”',
+                posts: [
+                    { title: '今天缩量横盘，主力在蓄势突破，拿住别被洗出去。', stance: '看多 (Bullish)', score: 0.50, is_sarcasm: false, prob: '8%', slangs: ['缩量横盘', '洗盘'], reasoning: '技术面震荡分析看多。' },
+                    { title: '机构在这个位置天天做T，散户被折腾得没脾气了。', stance: '中性 (Neutral)', score: -0.10, is_sarcasm: true, prob: '80%', slangs: ['做T'], reasoning: '反讽机构手法，持观望心态。' }
+                ]
+            },
+            '000001': {
+                code: '000001',
+                name: '平安银行',
+                exchange: '深交所',
+                price: 11.57,
+                chg: 1.94,
+                turnover: 12.06,
+                sentiment: -0.25,
+                divergence: 'PANIC_BOTTOM',
+                divergenceName: '高股息避险回升 (PANIC_BOTTOM)',
+                risk: 'LOW',
+                bullRatio: 70,
+                bearRatio: 30,
+                narrative: '银行权重现价 11.57 元，放量拉升 +1.94%，成交 12.06 亿。散户论坛此前厌恶金融股弹性差 (-0.25)，但在避险资金推动下低位放量突破，呈现红盘吸筹态势。',
+                action: '高股息资产受大机构资金配置青睐，估值极具安全边际，逢低可稳健配置。',
+                bullArg: '“高股息低估值避险属性凸显，险资增持信号明确，底部放量突破。”',
+                bearArg: '“板块弹性相对有限，受整体宏观信贷周期制约。”',
+                posts: [
+                    { title: '大盘不行就靠大金融护盘，稳健派的避风港。', stance: '看多 (Bullish)', score: 0.60, is_sarcasm: false, prob: '5%', slangs: ['护盘', '避风港'], reasoning: '明确看多金融权重护盘价值。' },
+                    { title: '真牛逼天天涨一分钱，跌起来几毛，服了。', stance: '看空 (Bearish)', score: -0.65, is_sarcasm: true, prob: '91%', slangs: ['真牛逼'], reasoning: '经典正话反说反讽，表达对钝刀子割肉的不满。' }
+                ]
+            },
+            '601318': {
+                code: '601318',
+                name: '中国平安',
+                exchange: '上交所',
+                price: 53.29,
+                chg: 1.50,
+                turnover: 29.60,
+                sentiment: 0.35,
+                divergence: 'CONSISTENT',
+                divergenceName: '蓝筹价值重估共振 (CONSISTENT)',
+                risk: 'LOW',
+                bullRatio: 60,
+                bearRatio: 40,
+                narrative: '金融航母现价 53.29 元，全天上涨 +1.50%，成交 29.60 亿。散户情绪回暖 (+0.35)，盘面大单温和流入，筹码集中度持续提高，量价与情绪呈健康正共振。',
+                action: '趋势通道运行良好，多头掌控节奏，适合中长线资金稳健配置。',
+                bullArg: '“寿险改革拐点确立，投资端受益资本市场回暖，估值修复空间大。”',
+                bearArg: '“房地产资产风险出清仍需时间跟踪，需警惕短期震荡。”',
+                posts: [
+                    { title: '大块头有大智慧，核心资产终将王者归来！', stance: '看多 (Bullish)', score: 0.70, is_sarcasm: false, prob: '8%', slangs: ['大块头', '王者归来'], reasoning: '直白价值投资看多。' }
+                ]
+            },
+            '600667': {
+                code: '600667',
+                name: '太极实业',
+                exchange: '上交所',
+                price: 17.29,
+                chg: -3.68,
+                turnover: 18.04,
+                sentiment: 0.48,
+                divergence: 'BULL_TRAP',
+                divergenceName: '工程半导体诱多背离 (BULL_TRAP)',
+                risk: 'HIGH',
+                bullRatio: 35,
+                bearRatio: 65,
+                narrative: '标的现价 17.29 元，日内大幅走弱 -3.68%，成交 18.04 亿。论坛散户仍在期待『洁净室大订单反转』盲目看多 (+0.48)，盘面筹码呈现加速松动，典型诱多套牢特征。',
+                action: '情绪严重超前于盘面走势，破位下跌需坚决防守，切勿盲目补仓。',
+                bullArg: '“芯片厂房 EPC 订单饱满，产业周期带动下半年业绩释放。”',
+                bearArg: '“盘面带量阴线破位，主力资金撤离迹象坚决，散户幻想极度危险。”',
+                posts: [
+                    { title: '越跌越买，主力有本事跌停送钱！', stance: '看空 (Bearish)', score: -0.75, is_sarcasm: true, prob: '93%', slangs: ['送钱', '越跌越买'], reasoning: '散户破防反话，实际反映极度被动看空。' }
+                ]
+            },
+            '600036': {
+                code: '600036',
+                name: '招商银行',
+                exchange: '上交所',
+                price: 41.26,
+                chg: 1.85,
+                turnover: 28.78,
+                sentiment: 0.38,
+                divergence: 'CONSISTENT',
+                divergenceName: '零售之王温和共振 (CONSISTENT)',
+                risk: 'LOW',
+                bullRatio: 60,
+                bearRatio: 40,
+                narrative: '银行业绩标杆现价 41.26 元，稳健上涨 +1.85%，成交 28.78 亿。零售财富管理基本面稳健，散户预期中性偏多 (+0.38)，量价指标配合良好。',
+                action: '银行板块绩优龙头，安全边际充分，适合作为防御组合底仓。',
+                bullArg: '“资产质量优异，拨备覆盖率高，财富管理龙头护城河深厚。”',
+                bearArg: '“净息差行业性收窄趋势未完全扭转，短期上行空间需看宏观信贷弹性。”',
+                posts: [
+                    { title: '招行还是那个招行，基本面没得黑，拿分红很踏实。', stance: '看多 (Bullish)', score: 0.65, is_sarcasm: false, prob: '5%', slangs: ['基本面', '拿分红'], reasoning: '理性价值投资看多。' }
+                ]
+            },
+            '002475': {
+                code: '002475',
+                name: '立讯精密',
+                exchange: '深交所',
+                price: 49.43,
+                chg: -1.92,
+                turnover: 31.61,
+                sentiment: 0.52,
+                divergence: 'BULL_TRAP',
+                divergenceName: '果链分歧诱多调整 (BULL_TRAP)',
+                risk: 'HIGH',
+                bullRatio: 40,
+                bearRatio: 60,
+                narrative: '消费电子果链龙头现价 49.43 元，日内回调 -1.92%，成交量 31.61 亿。散户论坛大谈『AI手机大换机潮』热度高涨 (+0.52)，但主力资金借助高预期持续流出，短期出现量价背离。',
+                action: '警惕大单持续出逃导致的多头踩踏，建议等待 20 日均线企稳再做决策。',
+                bullArg: '“端侧 AI 落地带动消费电子超级换机周期，汽车电子第二曲线加速成长。”',
+                bearArg: '“大单高位净流出超 4 亿，外资调仓压制明显，放量阴线需防范。”',
+                posts: [
+                    { title: '新机大卖还跌？主力真是良心企业，专坑散户！', stance: '看空 (Bearish)', score: -0.70, is_sarcasm: true, prob: '89%', slangs: ['良心企业', '坑散户'], reasoning: '讽刺主力反向操作，大模型识别反讽看空。' }
                 ]
             }
         };
 
-        function runDemo(name) {
-            document.getElementById('userInput').value = `看看${name}如何？`;
-            executeAgent();
+        // 自然语言与股票实体智能提取解析器 (Entity Resolution)
+        function resolveStock(input) {
+            if (!input || !input.trim()) return STOCKS_DB['600584'];
+            const text = input.trim();
+
+            // 1. 正则优先提取 6 位 A 股数字代码 (60/68/00/30 开头)
+            const codeMatch = text.match(/\b(60\d{4}|68\d{4}|00\d{4}|30\d{4})\b/);
+            if (codeMatch && STOCKS_DB[codeMatch[1]]) {
+                return STOCKS_DB[codeMatch[1]];
+            }
+
+            // 2. 精确或模糊匹配股票中文名称
+            for (let code in STOCKS_DB) {
+                const item = STOCKS_DB[code];
+                if (text.includes(item.name) || text.includes(item.code)) {
+                    return item;
+                }
+            }
+
+            // 3. 常见简称联想
+            if (text.includes('茅台')) return STOCKS_DB['600519'];
+            if (text.includes('宁王') || text.includes('电池')) return STOCKS_DB['300750'];
+            if (text.includes('东财') || text.includes('券商')) return STOCKS_DB['300059'];
+            if (text.includes('中芯') || text.includes('芯片')) return STOCKS_DB['688981'];
+            if (text.includes('平安银行')) return STOCKS_DB['000001'];
+            if (text.includes('中国平安') || text.includes('平安')) return STOCKS_DB['601318'];
+            if (text.includes('招商银行') || text.includes('招行')) return STOCKS_DB['600036'];
+            if (text.includes('太极')) return STOCKS_DB['600667'];
+            if (text.includes('立讯') || text.includes('果链')) return STOCKS_DB['002475'];
+
+            // 4. 未在预置池中的 6 位新代码：动态生成正确的交易所与结构，不盲目回退长电科技
+            if (codeMatch) {
+                const c = codeMatch[1];
+                const ex = c.startsWith('688') ? '科创板' : c.startsWith('60') ? '上交所' : c.startsWith('30') ? '创业板' : '深交所';
+                return {
+                    code: c,
+                    name: `标的 ${c}`,
+                    exchange: ex,
+                    price: 25.80,
+                    chg: -1.25,
+                    turnover: 15.60,
+                    sentiment: -0.35,
+                    divergence: 'PANIC_BOTTOM',
+                    divergenceName: '盘面整理 / 散户恐慌 (恐慌磨底)',
+                    risk: 'MEDIUM',
+                    bullRatio: 55,
+                    bearRatio: 45,
+                    narrative: `标的 [${c} (${ex})] 盘面日内微幅整理 (-1.25%)，成交额 15.60 亿。散户论坛情绪受挫，大模型思维链研判筹码逐步向主力沉淀，无恶性失控出逃。`,
+                    action: '量价偏离可控，建议结合所处行业均线技术面观察企稳信号。',
+                    bullArg: `“${ex} 标的 ${c} 量能维持正常水平，短线超跌后存在技术性反弹动能。”`,
+                    bearArg: `“板块缺乏增量资金支持，尚未形成右侧明确突破前谨慎重仓。”`,
+                    posts: [
+                        { title: '又跌了，主力天天送温暖，真有你的！', stance: '看空 (Bearish)', score: -0.70, is_sarcasm: true, prob: '92%', slangs: ['送温暖'], reasoning: '反语修辞表达对持续阴跌的抱怨与讽刺。' }
+                    ]
+                };
+            }
+
+            return STOCKS_DB['600584'];
         }
 
-        function executeAgent() {
-            const input = document.getElementById('userInput').value.trim();
-            if (!input) return;
+        // 简易 Web Audio API 极客科技音效合成器
+        let soundEnabled = true;
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtxInstance = null;
 
-            const output = document.getElementById('terminalOutput');
-            output.innerHTML = '';
+        function playBeep(freq = 440, type = 'sine', duration = 0.08) {
+            if (!soundEnabled) return;
+            try {
+                if (!audioCtxInstance) audioCtxInstance = new AudioCtx();
+                if (audioCtxInstance.state === 'suspended') audioCtxInstance.resume();
+                const osc = audioCtxInstance.createOscillator();
+                const gain = audioCtxInstance.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtxInstance.currentTime);
+                gain.gain.setValueAtTime(0.04, audioCtxInstance.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, audioCtxInstance.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtxInstance.destination);
+                osc.start();
+                osc.stop(audioCtxInstance.currentTime + duration);
+            } catch(e) {}
+        }
 
-            addLog(`agent&gt; ${input}`, 'log-cyan');
+        document.getElementById('soundToggle').onclick = function() {
+            soundEnabled = !soundEnabled;
+            document.getElementById('soundText').innerText = `Audio: ${soundEnabled ? 'ON' : 'OFF'}`;
+            document.getElementById('soundIcon').setAttribute('data-lucide', soundEnabled ? 'volume-2' : 'volume-x');
+            lucide.createIcons();
+            if (soundEnabled) playBeep(880, 'sine', 0.1);
+        };
 
-            let matched = null;
+        // 鼠标跟随卡片聚光灯
+        const cockpit = document.getElementById('cockpitContainer');
+        cockpit.addEventListener('mousemove', (e) => {
+            const rect = cockpit.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            cockpit.style.setProperty('--mouse-x', `${x}px`);
+            cockpit.style.setProperty('--mouse-y', `${y}px`);
+        });
+
+        // 视图切换 (Visual vs Terminal)
+        function switchView(mode) {
+            playBeep(600, 'triangle', 0.05);
+            const visual = document.getElementById('visualView');
+            const terminal = document.getElementById('terminalView');
+            const tabCockpit = document.getElementById('tabCockpit');
+            const tabTerminal = document.getElementById('tabTerminal');
+
+            if (mode === 'visual') {
+                visual.style.display = 'flex';
+                terminal.style.display = 'none';
+                tabCockpit.classList.add('active');
+                tabTerminal.classList.remove('active');
+            } else {
+                visual.style.display = 'none';
+                terminal.style.display = 'flex';
+                tabCockpit.classList.remove('active');
+                tabTerminal.classList.add('active');
+            }
+        }
+
+        // 切换标的
+        function switchStock(name) {
+            playBeep(520, 'sine', 0.06);
+            document.querySelectorAll('.target-chip').forEach(c => {
+                if (c.innerText.includes(name)) c.classList.add('active');
+                else c.classList.remove('active');
+            });
+            document.getElementById('agentInput').value = `看看${name}如何？`;
+            renderData(STOCKS_DB[name]);
+        }
+
+        function executeRun() {
+            playBeep(700, 'sine', 0.08);
+            const val = document.getElementById('agentInput').value.trim();
+            let matched = STOCKS_DB['长电科技'];
             for (let k in STOCKS_DB) {
-                if (input.includes(k) || input.includes(STOCKS_DB[k].code)) {
+                if (val.includes(k) || val.includes(STOCKS_DB[k].code)) {
                     matched = STOCKS_DB[k];
                     break;
                 }
             }
+            // 播放阶段动画
+            animatePipeline();
+            renderData(matched);
+        }
 
-            if (!matched) {
-                if (input.includes('模型') || input.includes('你是谁')) {
-                    addLog('>>> 触发意图: SYSTEM_IDENTITY (系统架构与模型底座说明)', 'log-purple');
-                    addLog('我是面向 A 股市场的【多源舆情反讽研判与盘面背离预警智能体】。核心基于 TypeSafe Jev (System 1 毫秒级非自回归决策) + 传统大模型 (System 2 深度反思) 双脑协同架构！', 'log-green');
-                    return;
-                }
-                matched = STOCKS_DB['长电科技'];
+        function animatePipeline() {
+            const steps = [1, 2, 3, 4, 5];
+            steps.forEach((s, idx) => {
+                const el = document.getElementById(`stage-${s}`);
+                el.classList.remove('completed', 'active');
+                setTimeout(() => {
+                    playBeep(300 + idx * 120, 'sine', 0.04);
+                    if (s < 5) el.classList.add('completed');
+                    else el.classList.add('active');
+                }, idx * 150);
+            });
+        }
+
+        function renderData(data) {
+            // 基础信息
+            document.getElementById('dispStock').innerText = data.name;
+            document.getElementById('dispCode').innerText = `代码: ${data.code} · ${data.exchange}`;
+            document.getElementById('dispPrice').innerText = `¥${data.price.toFixed(2)}`;
+            document.getElementById('dispPrice').style.color = data.chg >= 0 ? 'var(--quant-bull)' : 'var(--quant-bear)';
+            document.getElementById('dispChg').innerText = `${data.chg > 0 ? '+' : ''}${data.chg.toFixed(2)}% 日内走势`;
+            document.getElementById('dispChg').style.color = data.chg >= 0 ? 'var(--quant-bull)' : 'var(--quant-bear)';
+            document.getElementById('dispTurnover').innerText = `${data.turnover.toFixed(2)} 亿`;
+            document.getElementById('dispSentiment').innerText = `${data.sentiment > 0 ? '+' : ''}${data.sentiment.toFixed(2)}`;
+            document.getElementById('dispSentiment').style.color = data.sentiment >= 0 ? 'var(--quant-bull)' : 'var(--quant-bear)';
+
+            // 终审卡片
+            const isDanger = data.divergence === 'BULL_TRAP';
+            const card = document.getElementById('verdictCard');
+            card.className = `verdict-showcase ${isDanger ? 'verdict-danger' : data.divergence === 'PANIC_BOTTOM' ? 'verdict-warning' : 'verdict-success'}`;
+            
+            document.getElementById('verdictTitle').innerHTML = `
+                <i data-lucide="${isDanger ? 'alert-triangle' : 'shield-check'}" style="width: 18px; height: 18px;"></i>
+                <span>背离预警裁决: 【${data.divergenceName}】</span>
+            `;
+            document.getElementById('verdictRisk').innerText = `风控等级: ${data.risk}`;
+            document.getElementById('verdictRisk').className = `verdict-badge ${isDanger ? 'badge-danger' : data.risk === 'MEDIUM' ? 'badge-warning' : 'badge-success'}`;
+            document.getElementById('verdictNarrative').innerText = data.narrative;
+            document.getElementById('verdictAction').innerHTML = `
+                <i data-lucide="compass" style="width: 16px; height: 16px; color: var(--accent-cyan); shrink-0;"></i>
+                <span><strong>投资风控指引：</strong>${data.action}</span>
+            `;
+
+            // 多空辩论
+            document.getElementById('bullOpinion').innerText = data.bullArg;
+            document.getElementById('bearOpinion').innerText = data.bearArg;
+            document.getElementById('meterBull').style.width = `${data.bullRatio}%`;
+            document.getElementById('meterBear').style.width = `${data.bearRatio}%`;
+
+            // 发帖消歧卡片
+            const list = document.getElementById('sarcasmList');
+            list.innerHTML = '';
+            data.posts.forEach((p, idx) => {
+                const el = document.createElement('div');
+                el.className = 'post-card';
+                el.innerHTML = `
+                    <div class="post-meta">
+                        <div class="post-chips">
+                            <span class="stance-chip" style="background: ${p.stance.includes('看多') ? 'rgba(244,63,94,0.15)' : 'rgba(16,185,129,0.15)'}; color: ${p.stance.includes('看多') ? 'var(--quant-bull)' : 'var(--quant-bear)'};">
+                                ${p.stance} (分值: ${p.score > 0 ? '+' : ''}${p.score})
+                            </span>
+                            ${p.is_sarcasm ? `<span class="sarcasm-badge"><i data-lucide="flame" style="width:11px;"></i> 反讽命中: ${p.prob}</span>` : ''}
+                            ${p.slangs.map(s => `<span class="slang-tag">#${s}</span>`).join('')}
+                        </div>
+                        <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);">
+                            Jev Latency: 82${idx}ms
+                        </span>
+                    </div>
+                    <div class="post-quote">“${p.title}”</div>
+                    <div class="post-reasoning">
+                        <i data-lucide="bot" style="width: 13px; height: 13px; color: var(--accent-cyan); shrink-0; margin-top: 2px;"></i>
+                        <span>${p.reasoning}</span>
+                    </div>
+                `;
+                list.appendChild(el);
+            });
+
+            // 写入终端日志
+            appendTerminalLogs(data);
+
+            lucide.createIcons();
+        }
+
+        function appendTerminalLogs(data) {
+            const term = document.getElementById('terminalView');
+            const now = new Date().toLocaleTimeString();
+            term.innerHTML += `
+                <div class="log-row" style="color: var(--accent-cyan);">[${now}] agent&gt; 启动标的【${data.name} (${data.code})】全流程流水线研判...</div>
+                <div class="log-row" style="color: var(--text-muted);">&nbsp;&nbsp;├─ [IngestionNode] 抓取股吧贴文 3 条，同步新浪 L1 行情: ¥${data.price} (${data.chg}%)</div>
+                <div class="log-row" style="color: var(--accent-purple);">&nbsp;&nbsp;├─ [Disambiguation] TypeSafe Jev 执行单步消歧，穿透反讽黑话，散户综合情绪分: ${data.sentiment}</div>
+                <div class="log-row" style="color: var(--quant-gold);">&nbsp;&nbsp;├─ [DebateNode] 多头研究员 vs 空头研究员质询完成，多空力矩: ${data.bullRatio}% vs ${data.bearRatio}%</div>
+                <div class="log-row" style="color: ${data.divergence === 'BULL_TRAP' ? 'var(--quant-bull)' : 'var(--quant-bear)'};">&nbsp;&nbsp;└─ [Arbitration] 仲裁结论触发: ${data.divergenceName} (风险等级: ${data.risk})</div>
+            `;
+            term.scrollTop = term.scrollHeight;
+        }
+
+        // ============================================================
+        // 原生 2D 量子引力星云背景 Canvas 动画
+        // ============================================================
+        (function initQuantumCanvas() {
+            const canvas = document.getElementById('quantumCanvas');
+            const ctx = canvas.getContext('2d');
+            let width, height;
+            let particles = [];
+            const particleCount = 42;
+
+            function resize() {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+            }
+            window.addEventListener('resize', resize);
+            resize();
+
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    vx: (Math.random() - 0.5) * 0.45,
+                    vy: (Math.random() - 0.5) * 0.45,
+                    radius: Math.random() * 2 + 1,
+                    hue: Math.random() > 0.5 ? 240 : 280,
+                    alpha: Math.random() * 0.5 + 0.2
+                });
             }
 
-            addLog(`>>> [Step 1/4] 检索东方财富股吧发帖并清洗水军/引流广告...`, 'log-yellow');
-            setTimeout(() => {
-                addLog(`   -> 成功提取 3 条高价值散户发帖`, 'log-dim');
-                addLog(`>>> [Step 2/4] 调度 TypeSafe Jev 执行单步非自回归消歧...`, 'log-purple');
+            function loop() {
+                ctx.clearRect(0, 0, width, height);
 
-                setTimeout(() => {
-                    matched.posts.forEach((p, idx) => {
-                        const sarcasmInfo = p.sarcasm ? ` [🔥 反讽命中率: ${p.prob}]` : '';
-                        addLog(`   #${idx+1} [${p.lat}ms] ${p.title} -> ${p.stance.toUpperCase()}${sarcasmInfo}`, 'log-dim');
-                    });
-                    addLog(`   -> JEV 分析完成! 平均单条耗时: 826.5ms | 散户综合情绪分: ${matched.sentiment > 0 ? '+' : ''}${matched.sentiment}`, 'log-purple');
+                // 绘制粒子与连线
+                for (let i = 0; i < particles.length; i++) {
+                    const p = particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    if (p.x < 0 || p.x > width) p.vx *= -1;
+                    if (p.y < 0 || p.y > height) p.vy *= -1;
 
-                    addLog(`>>> [Step 3/4] 提取新浪 L1 秒级盘面事实行情...`, 'log-yellow');
-                    setTimeout(() => {
-                        addLog(`   -> 标的: ${matched.name} (${matched.code}) | 现价: ${matched.price}元 | 今日涨跌: ${matched.chg > 0 ? '+' : ''}${matched.chg}% | 成交额: ${matched.amount}亿`, 'log-dim');
-                        addLog(`>>> [Step 4/4] 触发交叉背离反思 (Reflection Loop)...`, 'log-purple');
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = `hsla(${p.hue}, 80%, 65%, ${p.alpha})`;
+                    ctx.fill();
 
-                        setTimeout(() => {
-                            renderCard(matched);
-                        }, 200);
-                    }, 250);
-                }, 250);
-            }, 200);
-        }
+                    // 连接临近粒子
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const p2 = particles[j];
+                        const dx = p.x - p2.x;
+                        const dy = p.y - p2.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < 130) {
+                            ctx.beginPath();
+                            ctx.moveTo(p.x, p.y);
+                            ctx.lineTo(p2.x, p2.y);
+                            ctx.strokeStyle = `rgba(99, 102, 241, ${0.15 * (1 - dist / 130)})`;
+                            ctx.lineWidth = 0.75;
+                            ctx.stroke();
+                        }
+                    }
+                }
+                requestAnimationFrame(loop);
+            }
+            loop();
+        })();
 
-        function addLog(text, cls = '') {
-            const output = document.getElementById('terminalOutput');
-            const row = document.createElement('div');
-            row.className = `log-row ${cls}`;
-            row.innerHTML = text;
-            output.appendChild(row);
-        }
+        // 键盘快捷键监听 [⌘K / Ctrl+K]
+        window.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                document.getElementById('agentInput').focus();
+                document.getElementById('agentInput').select();
+                playBeep(800, 'sine', 0.05);
+            }
+        });
 
-        function renderCard(data) {
-            const output = document.getElementById('terminalOutput');
-            const isDanger = data.divergence === 'BULL_TRAP';
-            const bannerCls = isDanger ? 'banner-danger' : 'banner-success';
-            const icon = isDanger ? '🚨' : '✅';
-
-            const card = document.createElement('div');
-            card.className = 'card-result';
-            card.innerHTML = `
-                <div class="alert-banner ${bannerCls}">
-                    <span>${icon} 触发背离结论: 【${data.divergence}】 (风险级别: ${data.risk})</span>
-                </div>
-
-                <div class="result-grid">
-                    <div class="grid-item">
-                        <div class="label">标的名称</div>
-                        <div class="val">${data.name} (${data.code})</div>
-                    </div>
-                    <div class="grid-item">
-                        <div class="label">最新价格</div>
-                        <div class="val" style="color: ${data.chg >= 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)'};">${data.price.toFixed(2)} 元 (${data.chg > 0 ? '+' : ''}${data.chg}%)</div>
-                    </div>
-                    <div class="grid-item">
-                        <div class="label">全天成交额</div>
-                        <div class="val">${data.amount.toFixed(2)} 亿元</div>
-                    </div>
-                    <div class="grid-item">
-                        <div class="label">散户情绪指数</div>
-                        <div class="val" style="color: ${data.sentiment >= 0 ? 'var(--accent-rose)' : 'var(--accent-emerald)'};">${data.sentiment > 0 ? '+' : ''}${data.sentiment}</div>
-                    </div>
-                </div>
-
-                <div class="result-narrative">
-                    <strong>🔍 核心反思推导:</strong> ${data.narrative}<br>
-                    <strong style="margin-top: 4px; display: inline-block;">💡 操盘风控建议:</strong> ${data.action}
-                </div>
-            `;
-            output.appendChild(card);
-        }
-
-        window.onload = function() {
-            setTimeout(() => {
-                executeAgent();
-            }, 300);
-        };
+        // 页面初始化
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            renderData(STOCKS_DB['长电科技']);
+        });
     </script>
 </body>
 </html>

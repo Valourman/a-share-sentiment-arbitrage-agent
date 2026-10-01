@@ -25,9 +25,11 @@ class MarketDataTool(Tool):
         code_str = str(code).strip()
         if code_str.lower().startswith(('sh', 'sz', 'bj')):
             return code_str.lower()
-        if code_str.startswith(('6', '9')):
+        # 按交易所代码段精确映射：60/68/9/5(基金/期权) 开头为沪市，
+        # 00/30/2(B股) 开头为深市，4/8/92 开头为北交所
+        if code_str.startswith(('6', '9', '5')):
             return f'sh{code_str}'
-        elif code_str.startswith(('0', '3', '5')):
+        elif code_str.startswith(('0', '3', '2')):
             return f'sz{code_str}'
         elif code_str.startswith(('4', '8')):
             return f'bj{code_str}'
@@ -61,8 +63,10 @@ class MarketDataTool(Tool):
             pre_close = float(parts[2])
             curr_p = float(parts[3])
             amount_yuan = float(parts[9])
+            # 停牌时新浪返回现价 0.00，不得据此计算 -100% 涨跌幅
+            is_trading = curr_p > 0
             chg_pct = 0.0
-            if pre_close > 0:
+            if pre_close > 0 and is_trading:
                 chg_pct = round(((curr_p - pre_close) / pre_close) * 100, 2)
 
             return MarketSnapshot(
@@ -72,7 +76,7 @@ class MarketDataTool(Tool):
                 pre_close=pre_close,
                 change_percent=chg_pct,
                 turnover_amount_yi=round(amount_yuan / 1e8, 2),
-                is_trading=True
+                is_trading=is_trading
             )
         except Exception as e:
             logger.warning(f"获取股票 [{stock_code}] 行情快照失败，启动降级保护: {e}")

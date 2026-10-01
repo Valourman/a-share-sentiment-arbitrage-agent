@@ -1,7 +1,7 @@
 import os
 import logging
 from dataclasses import dataclass
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from dotenv import load_dotenv
 from openai import OpenAI
 from src.agent.engine import SentimentArbitrageAgent
@@ -28,23 +28,49 @@ class ConversationalArbitrageAgent:
     结合 TypeSafe Jev 与 L1 盘面实时背离数据，针对性给出人类专家式金融解答。
     """
 
-    def __init__(self):
-        self.underlying_agent = SentimentArbitrageAgent()
+    def __init__(
+        self,
+        underlying_agent: Optional[SentimentArbitrageAgent] = None,
+        llm: Optional[Any] = None,
+        max_history_len: int = 30,
+    ):
+        self.underlying_agent = underlying_agent or SentimentArbitrageAgent(llm=llm)
         self.history: List[Dict[str, str]] = []
+        self.max_history_len = max_history_len
         self.current_stock_code: Optional[str] = None
         self.current_stock_name: Optional[str] = None
         self.last_analysis_state: Optional[AgentState] = None
 
-        # 可选的自由对话大模型客户端
-        self.api_key = os.getenv('OPENAI_API_KEY')
-        self.base_url = os.getenv('OPENAI_BASE_URL')
-        self.model_name = os.getenv('MODEL_NAME', 'gpt-4o')
+        # 可选的自由对话大模型客户端（优先复用传入的 llm 配置，兜底环境变量；
+        # 仅配置 API Key 时同样生效，并携带超时与重试，避免网络挂起时 UI 线程无限阻塞）
         self.client = None
-        if self.api_key and self.base_url:
-            try:
-                self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
-            except Exception as e:
-                logger.warning(f'Conversational OpenAI init error: {e}')
+        if llm is not None:
+            if getattr(llm, "client", None) is not None:
+                self.client = llm.client
+            self.model_name = getattr(llm, "model_name", None) or getattr(getattr(llm, "config", None), "default_model", None) or os.getenv('MODEL_NAME', 'gpt-4o')
+        else:
+            self.api_key = os.getenv('OPENAI_API_KEY')
+            self.base_url = os.getenv('OPENAI_BASE_URL')
+            self.model_name = os.getenv('MODEL_NAME', 'gpt-4o')
+            self.llm_timeout = float(os.getenv('TIMEOUT_SECONDS', '30'))
+            if self.api_key:
+                try:
+                    client_kwargs = {
+                        'api_key': self.api_key,
+                        'timeout': self.llm_timeout,
+                        'max_retries': 2,
+                    }
+                    if self.base_url:
+                        client_kwargs['base_url'] = self.base_url
+                    self.client = OpenAI(**client_kwargs)
+                except Exception as e:
+                    logger.warning(f'Conversational OpenAI init error: {e}')
+
+    def _append_history(self, role: str, content: str) -> None:
+        """追加会话历史并施加滑动窗口截断，防止服务端长驻内存无界膨胀"""
+        self.history.append({'role': role, 'content': content})
+        if len(self.history) > self.max_history_len:
+            self.history = self.history[-self.max_history_len:]
 
     def clear_memory(self):
         """清空会话多轮记忆与焦点标的"""
@@ -67,13 +93,13 @@ class ConversationalArbitrageAgent:
             )
 
         # 记录用户提问
-        self.history.append({'role': 'user', 'content': clean_input})
+        self._append_history('user', clean_input)
 
         # 1. 意图 A: 询问自身身份、系统架构与技术底座
         identity_keywords = ['你是谁', '什么模型', '哪家模型', '自我介绍', '架构', '谁开发的', '什么原理', '技术原理']
         if any(kw in clean_input.lower() for kw in identity_keywords):
             reply_text = self._handle_identity_query()
-            self.history.append({'role': 'assistant', 'content': reply_text})
+            self._append_history('assistant', reply_text)
             return ConversationalResponse(
                 reply_text=reply_text,
                 intent='SYSTEM_IDENTITY'
@@ -86,7 +112,7 @@ class ConversationalArbitrageAgent:
             # 如果没有提取到新的不同股票，直接作为追问处理
             if not stock_match or stock_match[0] == self.current_stock_code:
                 reply_text = self._synthesize_stock_answer(clean_input, self.last_analysis_state)
-                self.history.append({'role': 'assistant', 'content': reply_text})
+                self._append_history('assistant', reply_text)
                 return ConversationalResponse(
                     reply_text=reply_text,
                     intent='FOLLOW_UP',
@@ -113,7 +139,7 @@ class ConversationalArbitrageAgent:
 
             # 结合用户具体的提问（如是问“能买吗”还是“看看如何”），针对性生成回答！
             reply_text = self._synthesize_stock_answer(clean_input, state)
-            self.history.append({'role': 'assistant', 'content': reply_text})
+            self._append_history('assistant', reply_text)
 
             return ConversationalResponse(
                 reply_text=reply_text,
@@ -127,7 +153,7 @@ class ConversationalArbitrageAgent:
         knowledge_keywords = ['诱多', '恐慌磨底', '背离', 'jev', 'typesafe', '散户情绪', '左侧', '右侧', '套利']
         if any(kw in clean_input.lower() for kw in knowledge_keywords):
             reply_text = self._handle_knowledge(clean_input)
-            self.history.append({'role': 'assistant', 'content': reply_text})
+            self._append_history('assistant', reply_text)
             return ConversationalResponse(
                 reply_text=reply_text,
                 intent='FINANCIAL_KNOWLEDGE'
@@ -135,7 +161,7 @@ class ConversationalArbitrageAgent:
 
         # 5. 意图 E: 自由金融问答 (优先调用真实 LLM，没有 LLM 则提供高情商投研回应)
         reply_text = self._handle_general_chat(clean_input)
-        self.history.append({'role': 'assistant', 'content': reply_text})
+        self._append_history('assistant', reply_text)
         return ConversationalResponse(
             reply_text=reply_text,
             intent='GENERAL_CHAT'
@@ -199,7 +225,8 @@ class ConversationalArbitrageAgent:
                     messages=messages,
                     temperature=0.3,
                 )
-                return resp.choices[0].message.content
+                # content 可能为 None（如触发内容过滤），显式兜底保证 str 返回契约
+                return resp.choices[0].message.content or ''
             except Exception as e:
                 logger.warning(f"LLM synthesis error: {e}, falling back to targeted rule-based synthesizer")
 
@@ -324,7 +351,7 @@ class ConversationalArbitrageAgent:
                     messages=messages,
                     temperature=0.7,
                 )
-                return resp.choices[0].message.content
+                return resp.choices[0].message.content or ''
             except Exception as e:
                 logger.warning(f'LLM chat failed: {e}')
 

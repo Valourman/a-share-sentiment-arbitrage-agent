@@ -217,7 +217,7 @@ def run_demo(stock_code: str = "600584", max_posts: int = 20, force_mock: bool =
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="A-Share Multi-Agent Sentiment Arbitrage Workflow Demo")
     parser.add_argument("--code", type=str, default="600584", help="股票代码 (如 600584, 600667, 600519)")
-    parser.add_argument("--posts", type=int, default=15, help="抓取/分析的散户发帖样本数")
+    parser.add_argument("--posts", type=int, default=20, help="抓取/分析的散户发帖样本数")
     parser.add_argument("--mock", action="store_true", help="强制使用本地规则与离线数据")
     args = parser.parse_args()
 

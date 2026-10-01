@@ -59,6 +59,19 @@ def run_public_benchmark(engine_mode: str = 'jev'):
 
     console.print('[bold cyan]>>> 启动学术公开基准评测 (Public Benchmark Pipeline)[/bold cyan]')
     console.print('基准语料规范: [bold yellow]StockSentCN + ToSarcasm + SMP-ECISA[/bold yellow]')
+    # Fail-fast 防护：指定 JEV 或 LLM 评测时必须具备对应凭据，
+    # 坚决禁止静默降级为本地 Mock 规则引擎并输出虚假的学术级高指标与低延迟
+    if engine_mode == 'jev' and not getattr(analyzer, 'typesafe_api_key', None):
+        console.print('[bold red]错误: 指定了 JEV 引擎评测，但未配置 TYPESAFE_API_KEY。[/bold red]')
+        console.print('学术基准严禁使用 Mock 降级结果冒充模型能力，请在 .env 中配置凭据后重试。')
+        console.print('如仅需评测本地规则基准，请显式传参: python evals/public_benchmark.py --engine mock')
+        raise SystemExit(1)
+    elif engine_mode == 'llm' and not analyzer.llm.is_available:
+        console.print('[bold red]错误: 指定了 LLM 引擎评测，但大模型客户端未就绪 (缺少 OPENAI_API_KEY)。[/bold red]')
+        console.print('学术基准严禁使用 Mock 降级结果冒充模型能力，请在 .env 中配置凭据后重试。')
+        console.print('如仅需评测本地规则基准，请显式传参: python evals/public_benchmark.py --engine mock')
+        raise SystemExit(1)
+    actual_engine = engine_mode
     console.print(f'样本规模: [bold green]{len(dataset)}[/bold green] 条标准标注语料 | 评测引擎: [bold magenta]{engine_mode.upper()}[/bold magenta]\n')
 
     actual_stances = []
@@ -180,7 +193,6 @@ def run_public_benchmark(engine_mode: str = 'jev'):
     special_table.add_row('平均响应延迟 (Mean Latency)', f'[bold cyan]{mean_lat:.1f} ms[/bold cyan]', '非自回归单步毫秒级响应')
     special_table.add_row('P50 中位数耗时', f'{p50_lat:.1f} ms', '半数样本在此耗时内完成')
     special_table.add_row('P90 尾部耗时', f'{p90_lat:.1f} ms', '90% 样本网络峰值上限')
-    special_table.add_row('Schema 解析故障率', '[bold green]0.0%[/bold green]', '强类型输出，天然免疫格式损坏')
 
     console.print(special_table)
 

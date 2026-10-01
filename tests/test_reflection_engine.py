@@ -14,7 +14,7 @@ def agent_instance():
     return SentimentArbitrageAgent()
 
 def test_reflection_bull_trap_when_sentiment_high_and_price_drops(agent_instance):
-    """测试当散户情绪亢奋看多 (>=0.25) 但盘面大幅下挫 (< -0.5%) 时触发 BULL_TRAP"""
+    """测试当散户情绪亢奋看多 (>=0.20) 但盘面大幅下挫 (< -0.5%) 时触发 BULL_TRAP"""
     state = AgentState(stock_code="600584")
     state.average_sentiment = 0.65
     state.market_data = MarketSnapshot(
@@ -34,7 +34,7 @@ def test_reflection_bull_trap_when_sentiment_high_and_price_drops(agent_instance
     assert "多头诱多" in decision.reflection_narrative
 
 def test_reflection_panic_bottom_when_sentiment_low_and_price_resilient(agent_instance):
-    """测试当散户极度恐慌割肉 (<= -0.25) 但盘面抗跌红盘 (>= 0.0%) 时触发 PANIC_BOTTOM"""
+    """测试当散户极度恐慌割肉 (<= -0.20) 但盘面抗跌红盘 (>= 0.0%) 时触发 PANIC_BOTTOM"""
     state = AgentState(stock_code="002594")
     state.average_sentiment = -0.55
     state.market_data = MarketSnapshot(

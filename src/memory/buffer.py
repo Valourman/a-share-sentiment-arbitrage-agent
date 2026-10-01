@@ -17,7 +17,12 @@ class ConversationBufferMemory:
         if self.max_messages and len(self._messages) > self.max_messages:
             # 保留系统提示词(若有首条为system)，再滑动窗口截断
             if self._messages[0].role == RoleType.SYSTEM:
-                self._messages = [self._messages[0]] + self._messages[-(self.max_messages - 1):]
+                if self.max_messages == 1:
+                    # 边界防护：max_messages=1 时只保留 system 提示词
+                    # ([-0:] 在 Python 中等价于全量切片，会导致窗口永不截断)
+                    self._messages = [self._messages[0]]
+                else:
+                    self._messages = [self._messages[0]] + self._messages[-(self.max_messages - 1):]
             else:
                 self._messages = self._messages[-self.max_messages:]
 

@@ -69,13 +69,15 @@ class ToolChain(Tool):
             call_params = dict(step.fixed_params)
             if step.input_key in context:
                 call_params[step.input_key] = context[step.input_key]
+            elif step.input_key not in step.fixed_params:
+                # 上下文缺失且非固定参数时 fail-fast，避免工具以缺参状态静默产出错误结果
+                raise ToolException(
+                    f"工具链执行中断: 步骤 {i+1} 缺少上下文键 '{step.input_key}' (工具 '{step.tool_name}')"
+                )
 
-            # 执行工具
-            try:
-                result = tool.execute(**call_params)
-            except TypeError:
-                # 兼容单一参数传递
-                result = tool.execute(context.get(step.input_key))
+            # 执行工具：不做 TypeError 兜底重试——工具内部逻辑抛出的 TypeError
+            # 会被误判为签名不匹配而掩盖真实错误，且重试可能重复执行副作用
+            result = tool.execute(**call_params)
 
             # 更新上下文
             context[step.output_key] = result

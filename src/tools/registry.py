@@ -1,6 +1,9 @@
 import inspect
+import logging
 from typing import Any, Callable, Dict, List, Optional
 from src.tools.base import Tool, ToolParameter
+
+logger = logging.getLogger(__name__)
 
 
 class FunctionTool(Tool):
@@ -31,7 +34,9 @@ class ToolRegistry:
         self._tools: Dict[str, Tool] = {}
 
     def register(self, tool: Tool) -> Tool:
-        """注册一个 Tool 实例"""
+        """注册一个 Tool 实例（同名覆盖时记录告警，避免静默替换难以排查）"""
+        if tool.name in self._tools and self._tools[tool.name] is not tool:
+            logger.warning(f"工具注册冲突: '{tool.name}' 已注册，将被新实例覆盖")
         self._tools[tool.name] = tool
         return tool
 

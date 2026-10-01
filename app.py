@@ -1,3 +1,5 @@
+import html
+from urllib.parse import urlparse
 import streamlit as st
 import re
 import textwrap
@@ -7,6 +9,26 @@ from src.agent.state import AgentState, DivergenceType
 from src.agent.decision import has_valid_market_snapshot
 from src.core.config import AgentConfig, global_config
 from src.core.llm import HelloAgentsLLM
+from src.tools.stock_resolver import StockResolver
+
+
+def esc(value) -> str:
+    """HTML 转义外部文本（股吧帖子、新闻/公告标题、行情接口返回值等均为
+    任何人可发布的第三方内容），防止注入 unsafe_allow_html 的存储型 XSS"""
+    return html.escape(str(value if value is not None else ""), quote=True)
+
+
+def safe_href(url: str) -> str:
+    """校验外部链接的协议方案（Scheme），仅放行 http/https，防御 javascript: 等伪协议 XSS 注入"""
+    if not url:
+        return ""
+    try:
+        parsed = urlparse(str(url).strip())
+        if parsed.scheme.lower() in ("http", "https"):
+            return esc(url.strip())
+    except Exception:
+        pass
+    return ""
 
 # ============================================================
 # 1. 页面基础配置 (Gemini 沉浸式风格)
@@ -513,6 +535,8 @@ if "settings" not in st.session_state:
 def run_configured_agent(stock_code: str):
     """根据当前会话动态设置构造 LLM 与 Agent 并执行研判，附带实时动态进度条"""
     st.session_state.current_stock = stock_code
+    # 状态隔离：研判前先清空活跃状态，防止异常失败时残留前一标的数据造成界面混淆
+    st.session_state.active_state = None
     settings = st.session_state.settings
     config = AgentConfig(
         openai_api_key=settings["api_key"].strip() if settings["api_key"].strip() else None,
@@ -554,6 +578,10 @@ def run_configured_agent(stock_code: str):
             for s in agent.tracer.spans
         ]
         return state
+    except Exception as e:
+        # 统一入口级错误边界：所有调用入口（预设按钮/Hero卡片/chat_input）均不再裸抛 traceback
+        st.error(f"Agent 研判异常: {type(e).__name__}: {e}")
+        return None
     finally:
         progress_placeholder.empty()
 
@@ -662,6 +690,7 @@ with st.sidebar:
                     "use_llm": use_llm,
                     "workflow_mode": workflow_mode,
                 })
+                st.session_state.chat_agent = None  # 配置变更后重新初始化对话智能体
                 st.success("配置已更新生效")
                 st.rerun()
         with c2:
@@ -676,6 +705,7 @@ with st.sidebar:
                     "workflow_mode": True,
                     "timeout_seconds": float(global_config.timeout_seconds if global_config.timeout_seconds is not None else 30.0),
                 }
+                st.session_state.chat_agent = None  # 恢复默认后重新初始化对话智能体
                 st.rerun()
 
     st.markdown("<div style='font-size: 0.72rem; color: #9CA3AF; font-weight: 600; text-transform: uppercase; margin: 1rem 0 0.5rem 0.25rem;'>快速切换标的</div>", unsafe_allow_html=True)
@@ -738,8 +768,12 @@ if st.session_state.app_mode == "📊 标的研判":
     user_input = st.chat_input("输入 6 位 A 股股票代码 (如 600667, 600584) 启动多源全景智能研判...")
 
     if user_input:
-        code_match = re.search(r"\b(\d{6})\b", user_input)
-        target_code = code_match.group(1) if code_match else user_input.strip()
+        resolved = StockResolver.resolve_from_text(user_input)
+        if resolved:
+            target_code = resolved[0]
+        else:
+            code_match = re.search(r"(?<!\d)(\d{6})(?!\d)", user_input)
+            target_code = code_match.group(1) if code_match else user_input.strip()
 
         with st.spinner(f"Agent 正在多方位全量采集 [{target_code}] 股吧、新闻与盘面，并启动大模型多步反思..."):
             try:
@@ -766,7 +800,20 @@ if st.session_state.app_mode == "💬 对话问答":
 
     if st.session_state.chat_agent is None:
         with st.spinner("正在初始化对话式智能体 (System 1 + System 2 双脑架构)..."):
-            st.session_state.chat_agent = ConversationalArbitrageAgent()
+            settings = st.session_state.settings
+            chat_config = AgentConfig(
+                openai_api_key=settings["api_key"].strip() if settings["api_key"].strip() else None,
+                openai_base_url=settings["base_url"].strip() if settings["base_url"].strip() else None,
+                default_model=settings["model_name"].strip() if settings["model_name"].strip() else "gpt-4o-mini",
+                temperature=float(settings["temperature"]),
+                timeout_seconds=float(settings["timeout_seconds"]),
+            )
+            chat_llm = HelloAgentsLLM(config=chat_config)
+            chat_underlying = SentimentArbitrageAgent(llm=chat_llm)
+            st.session_state.chat_agent = ConversationalArbitrageAgent(
+                underlying_agent=chat_underlying,
+                llm=chat_llm,
+            )
     chat_agent = st.session_state.chat_agent
 
     # 历史消息回放
@@ -844,7 +891,7 @@ else:
     user_bubble_html = f"""
     <div class="user-msg-bubble">
         <div class="user-msg-content">
-            启动标的 <strong style="color: #2563EB;">[{state.stock_name} ({state.stock_code})]</strong> 的全量散户情绪消歧、主流资讯整合与多方位异动背离研判。
+            启动标的 <strong style="color: #2563EB;">[{esc(state.stock_name or state.stock_code)} ({esc(state.stock_code)})]</strong> 的全量散户情绪消歧、主流资讯整合与多方位异动背离研判。
         </div>
     </div>
     """
@@ -874,8 +921,8 @@ else:
             <div class="market-chips-grid">
                 <div class="market-chip-card">
                     <div class="chip-label">分析标的</div>
-                    <div class="chip-value" style="font-size: 1.1rem; color: #1F2937;">{state.stock_name}</div>
-                    <div style="font-size: 0.72rem; color: #6B7280; font-family: monospace;">{state.stock_code}</div>
+                    <div class="chip-value" style="font-size: 1.1rem; color: #1F2937;">{esc(state.stock_name or state.stock_code)}</div>
+                    <div style="font-size: 0.72rem; color: #6B7280; font-family: monospace;">{esc(state.stock_code)}</div>
                 </div>
                 <div class="market-chip-card">
                     <div class="chip-label">实时成交价</div>
@@ -901,8 +948,8 @@ else:
     # 背离研判雷达警报卡片
     ref = state.reflection
     if ref:
-        div_label = getattr(ref.divergence_type, "value", str(ref.divergence_type))
-        risk_label = getattr(ref.risk_level, "value", str(ref.risk_level))
+        div_label = esc(getattr(ref.divergence_type, "value", str(ref.divergence_type)))
+        risk_label = esc(getattr(ref.risk_level, "value", str(ref.risk_level)))
         is_div = ref.is_divergent
         is_unknown = ref.divergence_type == DivergenceType.INSUFFICIENT_DATA
         radar_class = "radar-banner divergent" if is_div else "radar-banner"
@@ -924,10 +971,10 @@ else:
                 </span>
             </div>
             <div style="font-size: 0.875rem; color: #374151; line-height: 1.6; margin-bottom: 0.75rem;">
-                <strong>多维因果推导逻辑：</strong>{ref.reflection_narrative}
+                <strong>多维因果推导逻辑：</strong>{esc(ref.reflection_narrative)}
             </div>
             <div style="padding: 0.65rem 0.85rem; background: rgba(0,0,0,0.03); border-radius: 0.75rem; font-size: 0.8rem; color: #4B5563;">
-                <strong>交易策略与风控提示：</strong>{ref.action_suggestion}
+                <strong>交易策略与风控提示：</strong>{esc(ref.action_suggestion)}
             </div>
         </div>
         """
@@ -988,36 +1035,36 @@ else:
                         多智能体多空对抗博弈 (对标 TradingAgents / FinRobot Debate Protocol)
                     </div>
                     <div style="font-size: 0.75rem; background: #EEF2FF; color: #4338CA; padding: 0.2rem 0.65rem; border-radius: 9999px; font-weight: 600;">
-                        裁决态势: {dr.consensus_bias}
+                        裁决态势: {esc(dr.consensus_bias)}
                     </div>
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.85rem;">
                     <div class="debate-col-bull">
                         <div style="font-weight: 700; color: #DC2626; font-size: 0.85rem; margin-bottom: 0.4rem;">
-                            {dr.bull_opinion.agent_name} (置信度: {dr.bull_opinion.confidence:.2f})
+                            {esc(dr.bull_opinion.agent_name)} (置信度: {dr.bull_opinion.confidence:.2f})
                         </div>
                         <div style="font-size: 0.8rem; color: #374151; margin-bottom: 0.5rem; font-weight: 600;">
-                            {dr.bull_opinion.core_thesis}
+                            {esc(dr.bull_opinion.core_thesis)}
                         </div>
                         <ul style="font-size: 0.75rem; color: #4B5563; margin: 0; padding-left: 1.1rem; line-height: 1.5;">
-                            {"".join(f"<li>{arg}</li>" for arg in dr.bull_opinion.arguments)}
+                            {"".join(f"<li>{esc(arg)}</li>" for arg in dr.bull_opinion.arguments)}
                         </ul>
                     </div>
                     <div class="debate-col-bear">
                         <div style="font-weight: 700; color: #059669; font-size: 0.85rem; margin-bottom: 0.4rem;">
-                            {dr.bear_opinion.agent_name} (置信度: {dr.bear_opinion.confidence:.2f})
+                            {esc(dr.bear_opinion.agent_name)} (置信度: {dr.bear_opinion.confidence:.2f})
                         </div>
                         <div style="font-size: 0.8rem; color: #374151; margin-bottom: 0.5rem; font-weight: 600;">
-                            {dr.bear_opinion.core_thesis}
+                            {esc(dr.bear_opinion.core_thesis)}
                         </div>
                         <ul style="font-size: 0.75rem; color: #4B5563; margin: 0; padding-left: 1.1rem; line-height: 1.5;">
-                            {"".join(f"<li>{arg}</li>" for arg in dr.bear_opinion.arguments)}
+                            {"".join(f"<li>{esc(arg)}</li>" for arg in dr.bear_opinion.arguments)}
                         </ul>
                     </div>
                 </div>
                 <div style="background: #F8FAFC; border-radius: 0.75rem; padding: 0.65rem 0.85rem; font-size: 0.78rem; color: #475569;">
-                    <strong>多空分歧焦点：</strong>{dr.key_divergence_point}<br>
-                    <strong>风控委员会仲裁结论：</strong>{dr.arbitration_summary}
+                    <strong>多空分歧焦点：</strong>{esc(dr.key_divergence_point)}<br>
+                    <strong>风控委员会仲裁结论：</strong>{esc(dr.arbitration_summary)}
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -1032,9 +1079,9 @@ else:
                 for c in catalysts:
                     st.markdown(f"""
                     <div class="catalyst-card" style="border-left: 3px solid #DC2626;">
-                        <div style="font-size: 0.75rem; color: #9CA3AF; margin-bottom: 0.2rem;">[{c.source_type.upper()}] 影响等级: {c.impact_level}</div>
-                        <div style="font-size: 0.8rem; font-weight: 600; color: #1F2937; margin-bottom: 0.3rem;">{c.source_title}</div>
-                        <div style="font-size: 0.75rem; color: #4B5563; line-height: 1.4;">{c.key_insight}</div>
+                        <div style="font-size: 0.75rem; color: #9CA3AF; margin-bottom: 0.2rem;">[{esc(c.source_type).upper()}] 影响等级: {esc(c.impact_level)}</div>
+                        <div style="font-size: 0.8rem; font-weight: 600; color: #1F2937; margin-bottom: 0.3rem;">{esc(c.source_title)}</div>
+                        <div style="font-size: 0.75rem; color: #4B5563; line-height: 1.4;">{esc(c.key_insight)}</div>
                     </div>
                     """, unsafe_allow_html=True)
             else:
@@ -1046,9 +1093,9 @@ else:
                 for r in risks:
                     st.markdown(f"""
                     <div class="catalyst-card" style="border-left: 3px solid #059669;">
-                        <div style="font-size: 0.75rem; color: #9CA3AF; margin-bottom: 0.2rem;">[{r.source_type.upper()}] 影响等级: {r.impact_level}</div>
-                        <div style="font-size: 0.8rem; font-weight: 600; color: #1F2937; margin-bottom: 0.3rem;">{r.source_title}</div>
-                        <div style="font-size: 0.75rem; color: #4B5563; line-height: 1.4;">{r.key_insight}</div>
+                        <div style="font-size: 0.75rem; color: #9CA3AF; margin-bottom: 0.2rem;">[{esc(r.source_type).upper()}] 影响等级: {esc(r.impact_level)}</div>
+                        <div style="font-size: 0.8rem; font-weight: 600; color: #1F2937; margin-bottom: 0.3rem;">{esc(r.source_title)}</div>
+                        <div style="font-size: 0.75rem; color: #4B5563; line-height: 1.4;">{esc(r.key_insight)}</div>
                     </div>
                     """, unsafe_allow_html=True)
             else:
@@ -1071,7 +1118,7 @@ else:
                 stance_color = "#4B5563"
                 stance_bg = "#F3F4F6"
 
-            slang_html = "".join([f'<span class="slang-pill">#{s}</span>' for s in item.slang_detected]) if item.slang_detected else '<span style="color: #9CA3AF; font-size: 0.7rem;">无特殊黑话</span>'
+            slang_html = "".join([f'<span class="slang-pill">#{esc(s)}</span>' for s in item.slang_detected]) if item.slang_detected else '<span style="color: #9CA3AF; font-size: 0.7rem;">无特殊黑话</span>'
             sarcasm_html = '<span class="sarcasm-pill">识别到反讽语义翻转</span>' if item.is_sarcasm else ''
 
             post_content = getattr(item, "raw_title", None) or f"股吧散户讨论语料 #{idx + 1}"
@@ -1092,12 +1139,12 @@ else:
                     </div>
                 </div>
                 <div style="font-size: 0.875rem; color: #1F2937; margin: 0.4rem 0 0.5rem 0; padding-left: 0.75rem; border-left: 3px solid #E5E7EB; font-style: italic;">
-                    “{post_content}”
+                    “{esc(post_content)}”
                 </div>
                 <details class="disambiguation-details">
                     <summary>📋 查看大模型消歧依据与日志</summary>
                     <div class="disambiguation-log-box">
-                        <strong>大模型消歧依据：</strong>{reason_text}
+                        <strong>大模型消歧依据：</strong>{esc(reason_text)}
                     </div>
                 </details>
             </div>
@@ -1107,17 +1154,18 @@ else:
     with tab_news:
         if state.news_list:
             for n_idx, news in enumerate(state.news_list):
-                link_html = f'<a href="{news.url}" target="_blank" style="color: #1A73E8; text-decoration: none; font-size: 0.8rem; margin-left: 0.5rem;">查看原文 ↗</a>' if news.url else ''
+                news_href = safe_href(news.url)
+                link_html = f'<a href="{news_href}" target="_blank" rel="noopener noreferrer" style="color: #1A73E8; text-decoration: none; font-size: 0.8rem; margin-left: 0.5rem;">查看原文 ↗</a>' if news_href else ''
                 news_card_html = f"""
                 <div class="info-card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                         <span style="font-size: 0.72rem; padding: 0.15rem 0.5rem; background: #E0F2FE; color: #0369A1; border-radius: 9999px; font-weight: 600;">
-                            {news.source}
+                            {esc(news.source)}
                         </span>
                         <span style="font-size: 0.75rem; color: #9CA3AF;">#{n_idx + 1} 实时财经资讯</span>
                     </div>
                     <div style="font-size: 0.9rem; font-weight: 600; color: #1F2937; line-height: 1.5;">
-                        {news.title} {link_html}
+                        {esc(news.title)} {link_html}
                     </div>
                 </div>
                 """
@@ -1128,7 +1176,8 @@ else:
     with tab_ann:
         if state.announcements:
             for a_idx, ann in enumerate(state.announcements):
-                link_html = f'<a href="{ann.url}" target="_blank" style="color: #1A73E8; text-decoration: none; font-size: 0.8rem; margin-left: 0.5rem;">官方查阅 ↗</a>' if ann.url else ''
+                ann_href = safe_href(ann.url)
+                link_html = f'<a href="{ann_href}" target="_blank" rel="noopener noreferrer" style="color: #1A73E8; text-decoration: none; font-size: 0.8rem; margin-left: 0.5rem;">官方查阅 ↗</a>' if ann_href else ''
                 ann_card_html = f"""
                 <div class="info-card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
@@ -1138,7 +1187,7 @@ else:
                         <span style="font-size: 0.75rem; color: #9CA3AF;">权威公告</span>
                     </div>
                     <div style="font-size: 0.9rem; font-weight: 600; color: #1F2937; line-height: 1.5;">
-                        {ann.title} {link_html}
+                        {esc(ann.title)} {link_html}
                     </div>
                 </div>
                 """
