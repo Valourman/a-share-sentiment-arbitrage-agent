@@ -13,6 +13,14 @@
         "true"
       ],
       "port": 8501
+    },
+    {
+      "name": "static-web-server",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "server.py"
+      ],
+      "port": 8080
     }
   ]
 }

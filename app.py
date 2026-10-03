@@ -422,12 +422,13 @@ footer { visibility: hidden !important; }
 [data-testid="stChatInput"] {
     border-radius: 9999px !important;
     border: 1px solid rgba(0, 0, 0, 0.1) !important;
-    background: rgba(255, 255, 255, 0.9) !important;
+    background: rgba(255, 255, 255, 0.95) !important;
     backdrop-filter: blur(20px) !important;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
 }
 [data-testid="stChatInput"] textarea {
     font-size: 0.9rem !important;
+    color: #1F1F1F !important;
 }
 [data-testid="stChatInput"] button {
     background: linear-gradient(135deg, #4285F4 0%, #6366F1 100%) !important;
@@ -436,25 +437,85 @@ footer { visibility: hidden !important; }
     border: none !important;
 }
 
-/* 侧边栏按钮样式 */
+/* 主视口所有按钮/卡片式推荐按钮统一定制 (高对比度 Google Gemini 纯白卡片风格) */
+.main .stButton > button,
+div[data-testid="stMainBlockContainer"] .stButton > button,
+div[data-testid="stButton"] > button {
+    background: #FFFFFF !important;
+    background-color: #FFFFFF !important;
+    color: #1F2937 !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    border-radius: 1rem !important;
+    padding: 1.15rem 1.25rem !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03) !important;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+    min-height: 5.25rem !important;
+    line-height: 1.5 !important;
+}
+.main .stButton > button [data-testid="stMarkdownContainer"] {
+    width: 100% !important;
+}
+.main .stButton > button p {
+    color: #4B5563 !important;
+    font-size: 0.85rem !important;
+    line-height: 1.55 !important;
+    margin: 0 !important;
+}
+.main .stButton > button p strong {
+    color: #111827 !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    display: block !important;
+    margin-bottom: 0.35rem !important;
+    letter-spacing: -0.01em !important;
+}
+.main .stButton > button:hover {
+    background: #FFFFFF !important;
+    background-color: #FFFFFF !important;
+    border-color: #4285F4 !important;
+    box-shadow: 0 8px 24px rgba(66, 133, 244, 0.12) !important;
+    transform: translateY(-2px) !important;
+}
+.main .stButton > button:hover p strong {
+    color: #1A73E8 !important;
+}
+.main .stButton > button:active {
+    transform: translateY(0) !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* 侧边栏专属胶囊按钮样式 */
 [data-testid="stSidebar"] .stButton button {
     border-radius: 9999px !important;
     border: 1px solid rgba(0, 0, 0, 0.06) !important;
     background: #FFFFFF !important;
+    background-color: #FFFFFF !important;
     color: #374151 !important;
     font-size: 0.825rem !important;
     font-weight: 500 !important;
     text-align: left !important;
     justify-content: flex-start !important;
     padding: 0.5rem 1rem !important;
+    min-height: auto !important;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02) !important;
     transition: all 0.2s ease !important;
 }
+[data-testid="stSidebar"] .stButton button p {
+    color: #374151 !important;
+    font-size: 0.825rem !important;
+    margin: 0 !important;
+}
 [data-testid="stSidebar"] .stButton button:hover {
     background: #F8FAFD !important;
+    background-color: #F8FAFD !important;
     border-color: #4285F4 !important;
     color: #4285F4 !important;
     transform: translateY(-1px) !important;
+}
+[data-testid="stSidebar"] .stButton button:hover p {
+    color: #4285F4 !important;
 }
 
 /* 侧边栏折叠面板与表单输入控件美化 */
