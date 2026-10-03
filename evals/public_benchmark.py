@@ -71,7 +71,6 @@ def run_public_benchmark(engine_mode: str = 'jev'):
         console.print('学术基准严禁使用 Mock 降级结果冒充模型能力，请在 .env 中配置凭据后重试。')
         console.print('如仅需评测本地规则基准，请显式传参: python evals/public_benchmark.py --engine mock')
         raise SystemExit(1)
-    actual_engine = engine_mode
     console.print(f'样本规模: [bold green]{len(dataset)}[/bold green] 条标准标注语料 | 评测引擎: [bold magenta]{engine_mode.upper()}[/bold magenta]\n')
 
     actual_stances = []

@@ -8,16 +8,13 @@
 5. P2-1: 结构化解析器对 JSON 顶层数组与尾随逗号的容错解析
 6. P2-3: ReflectionAgent 多轮反思闭环迭代
 """
-import pytest
 from src.core.schema import NewsArticle, AnnouncementItem, SentimentAnalysisResult, SentimentStance, MarketSnapshot
-from src.agent.state import AgentState, RiskLevel, DivergenceType
+from src.agent.state import AgentState, RiskLevel
 from src.workflow.nodes import (
     FundamentalCatalystNode,
     MultiAgentDebateNode,
     ArbitrageArbitrationNode,
-    CatalystType,
 )
-from src.workflow.state import DebateStance
 from src.core.parser import RobustAgentParser
 from pydantic import BaseModel
 from typing import List

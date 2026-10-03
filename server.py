@@ -83,8 +83,7 @@ def run_server():
     # 仅绑定本地回环地址，避免局域网内其他设备访问本地演示服务
     http.server.ThreadingHTTPServer.allow_reuse_address = True
     print('>>> 前端静态服务已启动:')
-    print(f'    - ALPHA-SENSE 落地页:      http://localhost:{PORT}/landing.html')
-    print(f'    - Gemini 交互版 (免构建):  http://localhost:{PORT}/index.html')
+    print(f'    - Gemini 决策看板 (免构建): http://localhost:{PORT}/index.html')
     print(f'    - 实时行情接口:           http://localhost:{PORT}/api/market?code=600584')
     with http.server.ThreadingHTTPServer(("127.0.0.1", PORT), Handler) as httpd:
         httpd.serve_forever()
