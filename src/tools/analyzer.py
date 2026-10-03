@@ -2,8 +2,9 @@ import os
 import time
 import logging
 from typing import Any, Dict, Optional
-import requests
+import httpx
 from dotenv import load_dotenv
+from src.core.http import create_http_client
 from src.core.schema import RawPost, SentimentAnalysisResult, SentimentStance
 from src.core.parser import RobustAgentParser
 from src.core.llm import HelloAgentsLLM
@@ -36,7 +37,11 @@ class FinancialSentimentAnalyzer(Tool):
     SARCASTIC_PRAISE_WORDS = ('好耶', '太棒了', '感谢主力', '送钱', '良心', '稳得')
     SARCASTIC_LOSS_WORDS = ('跌', '套', '亏', '面', '跳水', '哭')
 
-    def __init__(self, llm: Optional[HelloAgentsLLM] = None):
+    def __init__(
+        self,
+        llm: Optional[HelloAgentsLLM] = None,
+        http_client: Optional[httpx.Client] = None,
+    ):
         super().__init__()
         self.llm = llm or HelloAgentsLLM()
         self.api_key = self.llm.config.openai_api_key
@@ -44,11 +49,37 @@ class FinancialSentimentAnalyzer(Tool):
         self.model_name = self.llm.config.default_model
         self.client = self.llm.client
 
+        # 统一 HTTP 会话与连接池管理
+        self._custom_http_client = http_client
+        self._owned_http_client: Optional[httpx.Client] = None
+
         # TypeSafe AI Jev (System 1 非自回归单步决策引擎)
         self.typesafe_api_key = os.getenv('TYPESAFE_API_KEY')
         self.typesafe_base_url = os.getenv('TYPESAFE_BASE_URL', 'https://api.typesafe.ai/v1/systemone')
         self.typesafe_model = os.getenv('TYPESAFE_MODEL', 'jev-latest')
         self.default_engine = os.getenv('DEFAULT_SENTIMENT_ENGINE', 'auto')
+
+    def _get_http_client(self) -> httpx.Client:
+        """获取或创建复用的 HTTP 连接池客户端"""
+        if self._custom_http_client is not None:
+            return self._custom_http_client
+        if self._owned_http_client is None or self._owned_http_client.is_closed:
+            self._owned_http_client = create_http_client(timeout=10.0)
+        return self._owned_http_client
+
+    def close(self) -> None:
+        """显式释放自身创建的连接池客户端"""
+        if self._owned_http_client is not None and not self._owned_http_client.is_closed:
+            try:
+                self._owned_http_client.close()
+            finally:
+                self._owned_http_client = None
+
+    def __enter__(self) -> "FinancialSentimentAnalyzer":
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self.close()
 
     def execute(self, **kwargs: Any) -> Dict[str, Any]:
         """Tool 标准执行入口"""
@@ -115,7 +146,8 @@ class FinancialSentimentAnalyzer(Tool):
 
         t0 = time.perf_counter()
         try:
-            resp = requests.post(self.typesafe_base_url, headers=headers, json=payload, timeout=timeout)
+            client = self._get_http_client()
+            resp = client.post(self.typesafe_base_url, headers=headers, json=payload, timeout=timeout)
             resp.raise_for_status()
             data = resp.json()
             latency_ms = round((time.perf_counter() - t0) * 1000, 2)

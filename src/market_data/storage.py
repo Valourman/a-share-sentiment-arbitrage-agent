@@ -83,6 +83,13 @@ def _connect(path: str | Path, *, create: bool = False) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys=ON")
     conn.execute("PRAGMA busy_timeout=30000")
+    # 启用 WAL (Write-Ahead Logging) 模式提升并发读写吞吐，避免排他写锁阻塞并发读取
+    if str(db_path) != ":memory:":
+        try:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA synchronous=NORMAL")
+        except Exception:
+            pass
     return conn
 
 

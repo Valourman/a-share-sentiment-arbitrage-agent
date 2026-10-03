@@ -1,8 +1,9 @@
 import logging
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import httpx
 from bs4 import BeautifulSoup
+from src.core.http import create_http_client
 from src.core.schema import RawPost, NewsArticle, AnnouncementItem
 from src.tools.base import Tool, ToolParameter
 
@@ -46,9 +47,36 @@ class StockForumScraper(Tool):
     ]
     SPAM_REGEX = re.compile("|".join(SPAM_PATTERNS))
 
-    def __init__(self, timeout: float = 8.0):
+    def __init__(self, timeout: float = 8.0, client: Optional[httpx.Client] = None):
         super().__init__()
         self.timeout = timeout
+        self._custom_client = client
+        self._owned_client: Optional[httpx.Client] = None
+
+    def _get_client(self) -> httpx.Client:
+        """获取复用的 HTTP 连接池客户端，提升高频请求吞吐并杜绝短连接泄漏"""
+        if self._custom_client is not None:
+            return self._custom_client
+        if self._owned_client is None or self._owned_client.is_closed:
+            self._owned_client = create_http_client(
+                timeout=self.timeout,
+                headers=self.DEFAULT_HEADERS,
+            )
+        return self._owned_client
+
+    def close(self) -> None:
+        """显式释放自身创建的连接池客户端与套接字资源"""
+        if self._owned_client is not None and not self._owned_client.is_closed:
+            try:
+                self._owned_client.close()
+            finally:
+                self._owned_client = None
+
+    def __enter__(self) -> "StockForumScraper":
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self.close()
 
     def execute(self, **kwargs: Any) -> Dict[str, Any]:
         """Tool 标准执行入口"""
@@ -90,10 +118,10 @@ class StockForumScraper(Tool):
             return []
         url = f"https://guba.eastmoney.com/list,{clean_code}.html"
         try:
-            with httpx.Client(timeout=self.timeout, headers=self.DEFAULT_HEADERS) as client:
-                resp = client.get(url)
-                resp.raise_for_status()
-                html_content = resp.content.decode("utf-8", errors="replace")
+            client = self._get_client()
+            resp = client.get(url)
+            resp.raise_for_status()
+            html_content = resp.content.decode("utf-8", errors="replace")
         except Exception as e:
             logger.warning(f"股吧爬取失败 [{clean_code}]: {e}")
             return []
@@ -155,23 +183,23 @@ class StockForumScraper(Tool):
         url = f"https://vip.stock.finance.sina.com.cn/corp/go.php/vCB_AllNewsStock/symbol/{symbol}.phtml"
         news_list: List[NewsArticle] = []
         try:
-            with httpx.Client(timeout=self.timeout, headers=self.DEFAULT_HEADERS) as client:
-                resp = client.get(url)
-                if resp.status_code == 200:
-                    soup = BeautifulSoup(resp.content.decode("gbk", errors="replace"), "html.parser")
-                    items = soup.select(".datelist ul a")
-                    for elem in items[:max_items]:
-                        title = elem.get_text(strip=True)
-                        href = elem.get("href", "")
-                        if title and len(title) > 6:
-                            news_list.append(
-                                NewsArticle(
-                                    title=title,
-                                    summary=title,  # 新浪新闻列表页标题即包含最核心事件脉络
-                                    source="新浪财经/专业媒体",
-                                    url=href if href.startswith("http") else f"https:{href}" if href.startswith("//") else href,
-                                )
+            client = self._get_client()
+            resp = client.get(url)
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.content.decode("gbk", errors="replace"), "html.parser")
+                items = soup.select(".datelist ul a")
+                for elem in items[:max_items]:
+                    title = elem.get_text(strip=True)
+                    href = elem.get("href", "")
+                    if title and len(title) > 6:
+                        news_list.append(
+                            NewsArticle(
+                                title=title,
+                                summary=title,  # 新浪新闻列表页标题即包含最核心事件脉络
+                                source="新浪财经/专业媒体",
+                                url=href if href.startswith("http") else f"https:{href}" if href.startswith("//") else href,
                             )
+                        )
         except Exception as e:
             logger.warning(f"专业财经资讯抓取异常 [{stock_code}]: {e}")
 
@@ -188,9 +216,9 @@ class StockForumScraper(Tool):
         url = f"https://vip.stock.finance.sina.com.cn/corp/go.php/vCB_Bulletin/stockid/{clean_code}/page_type/ndbg.phtml"
         ann_list: List[AnnouncementItem] = []
         try:
-            with httpx.Client(timeout=self.timeout, headers=self.DEFAULT_HEADERS) as client:
-                resp = client.get(url)
-                if resp.status_code == 200:
+            client = self._get_client()
+            resp = client.get(url)
+            if resp.status_code == 200:
                     soup = BeautifulSoup(resp.content.decode("gbk", errors="replace"), "html.parser")
                     items = soup.select(".datelist ul a")
                     for elem in items[:max_items]:

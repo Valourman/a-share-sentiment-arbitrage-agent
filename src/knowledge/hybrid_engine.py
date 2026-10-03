@@ -125,24 +125,40 @@ class FinancialRAGKnowledgeBase:
         if not dense_hits and not sparse_hits:
             return []
 
-        # RRF (Reciprocal Rank Fusion) 倒数排名融合计算
+        # RRF (Reciprocal Rank Fusion) 倒数排名融合计算与量纲归一化
+        # 各候选列表单路理论最大得分为 1.0 / (rrf_constant + 1.0)
+        # 将各路候选列表分数对齐归一化到 [0, 1] 量纲，再加权融合至 [0, 1] 综合相关度量纲
         rrf_constant = 60.0
+        max_single_rrf = 1.0 / (rrf_constant + 1.0)
+        num_channels = 2.0  # 双路检索（Dense 向量通道 + Sparse 关键词通道）
+
         chunk_map: Dict[str, Chunk] = {}
         dense_ranks: Dict[str, int] = {}
         sparse_ranks: Dict[str, int] = {}
-        rrf_scores: Dict[str, float] = {}
+        dense_norm_scores: Dict[str, float] = {}
+        sparse_norm_scores: Dict[str, float] = {}
 
         for rank, (chunk, _) in enumerate(dense_hits, start=1):
             cid = chunk.chunk_id
             chunk_map[cid] = chunk
             dense_ranks[cid] = rank
-            rrf_scores[cid] = rrf_scores.get(cid, 0.0) + (1.0 / (rrf_constant + rank))
+            raw_rrf = 1.0 / (rrf_constant + rank)
+            dense_norm_scores[cid] = raw_rrf / max_single_rrf
 
         for rank, (chunk, _) in enumerate(sparse_hits, start=1):
             cid = chunk.chunk_id
             chunk_map[cid] = chunk
             sparse_ranks[cid] = rank
-            rrf_scores[cid] = rrf_scores.get(cid, 0.0) + (1.0 / (rrf_constant + rank))
+            raw_rrf = 1.0 / (rrf_constant + rank)
+            sparse_norm_scores[cid] = raw_rrf / max_single_rrf
+
+        # 统一量纲融合：双路协同命中得分显著高于单路，且最终分值严格收敛在 [0.0, 1.0]
+        all_cids = set(dense_norm_scores.keys()) | set(sparse_norm_scores.keys())
+        rrf_scores: Dict[str, float] = {}
+        for cid in all_cids:
+            s_dense = dense_norm_scores.get(cid, 0.0)
+            s_sparse = sparse_norm_scores.get(cid, 0.0)
+            rrf_scores[cid] = (s_dense + s_sparse) / num_channels
 
         # 时间衰减与结果封装
         now_ts = time.time()

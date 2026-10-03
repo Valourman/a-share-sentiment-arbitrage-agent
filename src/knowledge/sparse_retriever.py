@@ -11,8 +11,18 @@ class BM25Retriever:
     """
     轻量高效的中文金融 BM25 稀疏检索器
     对金融专有简称、股票代码、成语及黑话具备精确的关键词召回能力，
-    零重型 NLP 依赖，采用基于正则表达式的单字与数字/字母分词方案。
+    支持金融专有符号（如 $AAPL、¥100 等）的完整解析与精确匹配。
     """
+
+    FINANCIAL_PATTERN = re.compile(
+        r"(?:"
+        r"\$[a-z0-9_\.]+"
+        r"|[¥￥$€£]\s*[0-9]+(?:\.[0-9]+)?(?:[万亿kmbt])?"
+        r"|[0-9]+(?:\.[0-9]+)?%"
+        r"|[a-z0-9_]+"
+        r"|[一-龥]"
+        r")"
+    )
 
     def __init__(self, k1: float = 1.5, b: float = 0.75):
         """初始化 BM25 稀疏检索器
@@ -30,10 +40,10 @@ class BM25Retriever:
         self._term_freqs: List[Dict[str, int]] = []
 
     def _tokenize(self, text: str) -> List[str]:
-        """中文字符与英文/数字序列分词
+        """中文字符、英文/数字序列与金融符号（如 $AAPL、¥100 等）结构化分词。
 
-        将英文字母统一转为小写，连续的字母/数字/下划线作为独立词元，
-        汉字按单字切分，过滤掉多余的空白与标点符号。
+        将英文字母统一转为小写，优先提取完整的金融 Cashtag、货币金额及百分比实体，
+        并保留核心脱符子词元以支持混合检索；汉字按单字切分。
 
         参数:
             text: 待分词的原始文本
@@ -42,8 +52,23 @@ class BM25Retriever:
             词元字符串列表
         """
         text = text.lower()
-        # 匹配英文/数字/下划线词元或者单个中文字符
-        tokens = re.findall(r"[a-z0-9_]+|[一-龥]", text)
+        raw_matches = self.FINANCIAL_PATTERN.findall(text)
+        tokens: List[str] = []
+        for match in raw_matches:
+            clean_token = match.strip()
+            if not clean_token:
+                continue
+            tokens.append(clean_token)
+            # 若属于金融带符号词元（如 $aapl 或 ¥100），派发脱符号词元，
+            # 保证精确符号查询 ($AAPL) 与普通无符号查询 (AAPL) 均能高置信度召回
+            if clean_token.startswith("$") and len(clean_token) > 1:
+                sub = clean_token[1:]
+                if sub and sub != clean_token:
+                    tokens.append(sub)
+            elif clean_token[0] in ("¥", "￥", "€", "£") and len(clean_token) > 1:
+                sub = clean_token[1:].strip()
+                if sub and sub != clean_token:
+                    tokens.append(sub)
         return tokens
 
     def add_chunks(self, chunks: List[Chunk]) -> None:

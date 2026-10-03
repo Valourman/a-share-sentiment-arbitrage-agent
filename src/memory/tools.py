@@ -113,9 +113,31 @@ class RAGTool(Tool):
         return self.retriever.format_as_context(items)
 
 
-# 注册实例至全局工具库
-global_memory_tool = MemoryTool()
-global_rag_tool = RAGTool()
+# 显式注册函数与依赖注入接口，彻底消除模块 import 时的全局单例隐式注册副作用
+def register_memory_tools(
+    registry: Optional[Any] = None,
+    manager: Optional[MemoryManager] = None,
+    retriever: Optional[FinancialKnowledgeRetriever] = None,
+) -> tuple[MemoryTool, RAGTool]:
+    """显式向指定工具注册表注册 MemoryTool 与 RAGTool，消除隐式副作用。
 
-global_tool_registry.register(global_memory_tool)
-global_tool_registry.register(global_rag_tool)
+    参数:
+        registry: 目标工具注册表，默认使用 global_tool_registry
+        manager: 可选注入的 MemoryManager 实例
+        retriever: 可选注入的 FinancialKnowledgeRetriever 实例
+
+    返回:
+        已注册的 (MemoryTool, RAGTool) 实例元组
+    """
+    target_registry = registry or global_tool_registry
+    memory_tool = MemoryTool(manager=manager)
+    rag_tool = RAGTool(retriever=retriever)
+    target_registry.register(memory_tool)
+    target_registry.register(rag_tool)
+    return memory_tool, rag_tool
+
+
+# 向下兼容占位符（已弃用模块级自动注册单例，统一采用显式注册 register_memory_tools 或依赖注入）
+global_memory_tool: Optional[MemoryTool] = None
+global_rag_tool: Optional[RAGTool] = None
+

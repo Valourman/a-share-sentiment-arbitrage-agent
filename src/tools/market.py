@@ -1,6 +1,7 @@
 import logging
-import urllib.request
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+import httpx
+from src.core.http import create_http_client
 from src.core.market_schema import MarketSnapshot
 from src.tools.base import Tool, ToolParameter
 
@@ -19,6 +20,33 @@ class MarketDataTool(Tool):
             required=True,
         )
     ]
+
+    def __init__(self, client: Optional[httpx.Client] = None):
+        super().__init__()
+        self._custom_client = client
+        self._owned_client: Optional[httpx.Client] = None
+
+    def _get_client(self) -> httpx.Client:
+        """获取复用的 HTTP 连接池客户端"""
+        if self._custom_client is not None:
+            return self._custom_client
+        if self._owned_client is None or self._owned_client.is_closed:
+            self._owned_client = create_http_client(timeout=5.0)
+        return self._owned_client
+
+    def close(self) -> None:
+        """显式释放自身创建的连接池客户端与网络套接字"""
+        if self._owned_client is not None and not self._owned_client.is_closed:
+            try:
+                self._owned_client.close()
+            finally:
+                self._owned_client = None
+
+    def __enter__(self) -> "MarketDataTool":
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self.close()
 
     @staticmethod
     def _format_secid(code: str) -> str:
@@ -48,10 +76,11 @@ class MarketDataTool(Tool):
             'Referer': 'https://finance.sina.com.cn',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
-        req = urllib.request.Request(url, headers=headers)
         try:
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                content = resp.read().decode('gbk', errors='ignore')
+            client = self._get_client()
+            resp = client.get(url, headers=headers, timeout=5.0)
+            resp.raise_for_status()
+            content = resp.content.decode('gbk', errors='ignore')
             if '"' not in content:
                 raise ValueError(f'返回内容无效，未能提取行情数据: {content}')
             raw_data = content.split('"')[1]

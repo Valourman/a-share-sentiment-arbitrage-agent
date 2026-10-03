@@ -186,6 +186,7 @@ def run_public_benchmark(engine_mode: str = 'jev'):
     special_table.add_column('实测数值', width=22)
     special_table.add_column('工业级基准说明', width=28)
 
+    special_table.add_row('整体分类准确率 (Overall Accuracy)', f'[bold green]{acc * 100:.1f}%[/bold green]', '多空与中性基准全量判准率')
     special_table.add_row('反讽消歧召回率 (Sarcasm Recall)', f'[bold green]{sarcasm_rec * 100:.1f}%[/bold green]', '穿透正话反说（如送钱）')
     special_table.add_row('反讽精确率 (Sarcasm Precision)', f'{sarcasm_prec * 100:.1f}%', '避免正常多头被误判反讽')
     special_table.add_row('反讽专项 F1-Score', f'[bold green]{sarcasm_f1 * 100:.1f}%[/bold green]', '综合反讽消歧均衡度')

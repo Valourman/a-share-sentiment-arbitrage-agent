@@ -113,6 +113,19 @@ class DisambiguationNode:
     def __init__(self, analyzer: FinancialSentimentAnalyzer):
         self.analyzer = analyzer
 
+    def _dispatch_single(
+        self,
+        post: Any,
+        engine_mode: Optional[str] = None,
+        use_llm: bool = True,
+    ) -> SentimentAnalysisResult:
+        """统一的单条语料消歧引擎分发路由，集中处理引擎模式映射与单条异常隔离降级"""
+        try:
+            return self.analyzer.analyze(post, engine_mode=engine_mode, use_llm=use_llm)
+        except Exception as e:
+            logger.warning(f"语料消歧分发执行异常，已安全降级为规则引擎结果: {e}")
+            return self.analyzer.analyze_mock(post)
+
     def run(
         self,
         posts: List[Any],
@@ -127,39 +140,25 @@ class DisambiguationNode:
         if progress_callback:
             progress_callback(0.3, f"情绪流执行: 正对 {len(posts)} 条散户语料进行并发反讽消歧...")
 
-        # 归一化引擎语义：use_llm=False 强制 mock，防止 (use_llm=False, engine_mode="llm")
-        # 这类矛盾组合绕过调用方的显式降级意图
+        # 归一化引擎语义：use_llm=False 强制 mock，防止矛盾组合绕过调用方的降级意图
         if engine_mode == "mock":
             use_llm = False
         if not use_llm:
             engine_mode = "mock"
 
-        # Mock 模式或语料极少时直接串行
+        # Mock 模式或语料极少时直接串行分发
         if engine_mode == "mock" or len(posts) <= 2:
-            results: List[SentimentAnalysisResult] = []
-            for p in posts:
-                if engine_mode:
-                    res = self.analyzer.analyze(p, engine_mode=engine_mode)
-                else:
-                    res = self.analyzer.analyze_with_llm(p)
-                results.append(res)
-            return results
+            return [self._dispatch_single(p, engine_mode=engine_mode, use_llm=use_llm) for p in posts]
 
-        # 并发批处理加速 LLM 消歧
-        results = [None] * len(posts)  # type: ignore
+        # 并发批处理加速远程/LLM 消歧，单条统一走 _dispatch_single 分发路由
+        results: List[Optional[SentimentAnalysisResult]] = [None] * len(posts)
 
-        def _analyze_single(idx: int, post: Any) -> Tuple[int, SentimentAnalysisResult]:
-            # 单条失败降级为 mock 结果填充原位，保证结果与语料严格等长、索引不错位
-            try:
-                if engine_mode:
-                    return idx, self.analyzer.analyze(post, engine_mode=engine_mode)
-                return idx, self.analyzer.analyze_with_llm(post)
-            except Exception as e:
-                logger.warning(f"语料 #{idx + 1} 消歧失败，已降级为规则引擎结果: {e}")
-                return idx, self.analyzer.analyze_mock(post)
+        def _worker(idx: int, post: Any) -> Tuple[int, SentimentAnalysisResult]:
+            res = self._dispatch_single(post, engine_mode=engine_mode, use_llm=use_llm)
+            return idx, res
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="workflow-disambig") as executor:
-            futures = [executor.submit(_analyze_single, i, p) for i, p in enumerate(posts)]
+            futures = [executor.submit(_worker, i, p) for i, p in enumerate(posts)]
             try:
                 completed = 0
                 for future in concurrent.futures.as_completed(futures):
@@ -178,7 +177,7 @@ class DisambiguationNode:
                     f.cancel()
                 raise
 
-        # 契约保证：返回结果与输入语料一一对应（失败位已由 mock 填充）
+        # 契约保证：返回结果与输入语料严格等长且对应（失败位已在分发路由中填充 mock）
         return [r if r is not None else self.analyzer.analyze_mock(posts[i]) for i, r in enumerate(results)]
 
 
