@@ -1,4 +1,4 @@
-<h1 align="center">A-Share Sentiment Arbitrage Agent</h1>
+<h1 align="center">A股情绪分析助手</h1>
 
 <p align="center">读得懂股吧黑话反讽、分得清公告利好利空、自带多空 Agent 对辩的 A 股量化舆情分析系统</p>
 
