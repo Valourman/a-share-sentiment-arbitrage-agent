@@ -21,16 +21,14 @@
 | `src/knowledge/`、`src/memory/` | 可选的稠密检索 + BM25 + RRF 金融知识库、记忆组件；知识库未见在主研判链中直接调用。 |
 | `src/protocols/` | MCP 客户端相关代码与实验性 A2A 骨架。 |
 | `app.py` | Streamlit 交互工作台，实际调用 `SentimentArbitrageAgent.run()`。 |
-| `frontend/`、`server.py` | 三套静态视觉页面与静态服务器；`frontend/index.html` 使用内置价格样例与延时模拟，并非实时后端接口。 |
 | `tests/`、`evals/` | 单元测试和 15 条自建、35 条公开范式语料的评测脚本。 |
 
 ## 运行方式
 
-要求 Python ≥ 3.10。按 `README.md` 安装 `pip install -e ".[dev]"`，可从 `.env.example` 复制配置并填写模型密钥。真实交互工作台执行 `streamlit run app.py`；静态界面执行 `python server.py`，默认监听 8080；测试为 `pytest -v tests/`；评测入口包括 `python -m evals.benchmark` 和 `python -m evals.public_benchmark`。
+要求 Python ≥ 3.10。按 `README.md` 安装 `pip install -e ".[dev]"`，可从 `.env.example` 复制配置并填写模型密钥。真实交互工作台执行 `streamlit run app.py`（默认监听 8501）；测试为 `pytest -v tests/`；评测入口包括 `python -m evals.benchmark` 和 `python -m evals.public_benchmark`。
 
 ## 解读边界
 
-- 静态页面中的行情、分析结论是演示数据；不要把它们当成实时报价或后端研判结果。
 - 外部网页结构、网络与模型密钥会影响实际运行；行情取数失败的零值快照需要特别辨别，不能直接视作有效盘面。
 - `README.md` 报告的高准确率来自有限样本，不能据此推断真实市场泛化效果。本轮已运行离线单元测试，但未验证实时行情或模型的市场效果；项目输出不构成投资建议。
 
