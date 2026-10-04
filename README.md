@@ -5,7 +5,6 @@
 <p align="center">
   <a href="https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square"><img src="https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square" alt="Python Version" /></a>
   <a href="https://img.shields.io/badge/Contract-Pydantic%20V2-2094f3?style=flat-square"><img src="https://img.shields.io/badge/Contract-Pydantic%20V2-2094f3?style=flat-square" alt="Pydantic V2" /></a>
-  <a href="https://valourman.github.io/a-share-sentiment-arbitrage-agent/"><img src="https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-4285F4?style=flat-square" alt="Live Demo" /></a>
   <a href="https://github.com/Valourman/a-share-sentiment-arbitrage-agent"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" /></a>
 </p>
 
@@ -149,27 +148,13 @@ python demo.py --mock
 
 ## 界面展示
 
-如果你不想只看黑底白字的命令行，系统为你准备了开箱即用的可视化界面：
-
-### 1. 交互式数据大盘 (Streamlit)
-
-适合交互式实操与动态复盘：
+如果你不想只看黑底白字的命令行，系统为你准备了开箱即用的可视化交互大盘 (Streamlit)：
 
 ```bash
 streamlit run app.py
 ```
 
-在浏览器里可以直接输入任意股票代码，实时查看散户情绪气泡图、多空对辩卡片和量价背离警报仪表盘。
-
-### 2. 本地免构建前端看板
-
-系统内置了一套轻量静态前端，不需要装 Node.js 或前端依赖，直接启动 Python 原生服务：
-
-```bash
-python server.py
-```
-
-启动后在浏览器打开 `http://localhost:8080/` 即可浏览多智能体推演过程与决策大盘。线上预览也可直接访问：[GitHub Pages 在线 Demo](https://valourman.github.io/a-share-sentiment-arbitrage-agent/)。
+在浏览器里可以直接输入任意股票代码（默认 `http://localhost:8501/`），实时查看散户情绪气泡图、多空对辩卡片和量价背离警报仪表盘。
 
 ---
 
@@ -230,9 +215,6 @@ pytest --cov=src
 
 # 运行代码风格与类型检查
 ruff check .
-
-# 启动本地免构建轻量网页服务
-python server.py
 ```
 
 ---
